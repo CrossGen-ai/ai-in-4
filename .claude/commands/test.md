@@ -55,7 +55,7 @@ TEST_COMMAND_TIMEOUT: 5 minutes
    - Preparation Command: None
    - Command: `cd app/server && uv run pytest tests/ -v --tb=short`
    - test_name: "all_backend_tests"
-   - test_purpose: "Validates all backend functionality including file processing, SQL security, LLM integration, and API endpoints"
+   - test_purpose: "Validates all backend functionality including API endpoints and business logic"
 
 ### Frontend Tests
 

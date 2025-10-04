@@ -29,3 +29,32 @@ This prompt helps you determine what documentation you should read based on the 
 - adws/README.md
   - Conditions:
     - When you're operating in the `adws/` directory
+
+- app_docs/patterns/README.md
+  - Conditions:
+    - When creating new features
+    - When you want to understand code patterns and conventions
+    - When implementing new functionality
+    - When you need to see available pattern templates
+
+- app_docs/patterns/backend-routes.md
+  - Conditions:
+    - When creating new API endpoints
+    - When adding routes to the backend
+    - When implementing backend features that require HTTP endpoints
+    - When you need to understand FastAPI route patterns
+    - When adding new functionality to app/server/api/routes/
+
+- app_docs/patterns/frontend-hooks.md
+  - Conditions:
+    - When creating custom React hooks
+    - When implementing data fetching in the frontend
+    - When adding hooks to app/client/src/hooks/
+    - When you need to understand React hook patterns
+    - When integrating with the API client
+
+- app/client/src/hooks/useHealth.ts
+  - Conditions:
+    - When creating custom hooks (working example to reference)
+    - When implementing API integration in hooks (see actual implementation)
+    - When you need a complete hook example with error handling and loading states

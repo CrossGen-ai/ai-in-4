@@ -1,1 +1,1 @@
-# Core module for Natural Language SQL Interface
+# Core module for application configuration and utilities

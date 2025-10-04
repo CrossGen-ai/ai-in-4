@@ -6,11 +6,35 @@
 """
 GitHub Webhook Trigger - AI Developer Workflow (ADW)
 
-FastAPI webhook endpoint that receives GitHub issue events and triggers ADW workflows.
-Responds immediately to meet GitHub's 10-second timeout by launching adw_plan_build.py
-in the background.
+This is the FastAPI web server that receives GitHub webhooks and triggers ADW agents.
+Must be running for webhooks to work.
 
-Usage: uv run trigger_webhook.py
+WEBHOOK ROUTING ARCHITECTURE:
+  GitHub webhook → webhook.agents-r-here.ai
+    ↓ (Cloudflare Tunnel - auto-running service on this Mac)
+  Traefik reverse proxy (Docker - ~/webhook-router/)
+    ↓ (validates X-Webhook-Token header, routes by path)
+  THIS FastAPI SERVER on port 8001 ← YOU ARE HERE
+    ↓ (receives validated webhooks, responds <10s)
+  Launches ADW workflow scripts in background (Popen)
+    ↓
+  ADW agents execute (adw_plan.py, adw_build.py, adw_document.py)
+
+INFRASTRUCTURE COMPONENTS:
+- Cloudflare Tunnel: Auto-starts on boot (launchd service)
+- Traefik + Auth: Docker containers handle security & routing to multiple projects
+- This FastAPI server: Must be started manually to receive webhooks
+- Token validation: Handled by Traefik upstream, not in this code
+
+MULTI-PROJECT ROUTING:
+The larger webhook system routes to multiple projects on this Mac.
+Each project has its own trigger endpoint. This is the ADW project's endpoint.
+
+STARTING THE SERVER:
+  Usage: PORT=8001 uv run adws/adw_triggers/trigger_webhook.py
+
+  Or via convenience wrapper:
+  cd ~/webhook-router && ./start-webhook.sh
 
 Environment Requirements:
 - PORT: Server port (default: 8001)
