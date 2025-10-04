@@ -1,8 +1,13 @@
 #!/bin/bash
 
-# Port configuration
-SERVER_PORT=8000
-CLIENT_PORT=5173
+# Load environment variables from root .env
+if [ -f .env ]; then
+    export $(cat .env | grep -v '^#' | xargs)
+fi
+
+# Port configuration from environment or defaults
+SERVER_PORT=${SERVER_PORT:-8000}
+CLIENT_PORT=${CLIENT_PORT:-5173}
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -11,7 +16,9 @@ RED='\033[0;31m'
 YELLOW='\033[0;33m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}Starting Natural Language SQL Interface...${NC}"
+echo -e "${BLUE}Starting Application...${NC}"
+echo -e "${BLUE}Client Port: ${CLIENT_PORT}${NC}"
+echo -e "${BLUE}Server Port: ${SERVER_PORT}${NC}"
 
 # Function to kill process on port
 kill_port() {

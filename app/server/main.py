@@ -1,21 +1,23 @@
-import logging
-import sys
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from core.config import settings
+from api.routes import health
 
-# Configure logging to match server.py
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
+app = FastAPI(
+    title=settings.PROJECT_NAME,
+    version=settings.VERSION,
 )
 
-# Create logger for this module
-logger = logging.getLogger(__name__)
+# CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-def main():
-    logger.info("Hello from server!")
+# Routes
+app.include_router(health.router, prefix="/api", tags=["health"])
 
-
-if __name__ == "__main__":
-    main()
+# Add your routers here
