@@ -168,7 +168,6 @@ def check_env_vars(logger: Optional[logging.Logger] = None) -> None:
         SystemExit: If required environment variables are missing
     """
     required_vars = [
-        "ANTHROPIC_API_KEY",
         "CLAUDE_CODE_PATH",
     ]
     missing_vars = [var for var in required_vars if not os.getenv(var)]
@@ -197,9 +196,11 @@ def get_safe_subprocess_env() -> Dict[str, str]:
         Dictionary containing only required environment variables
     """
     safe_env_vars = {
-        # Anthropic Configuration (required)
+        # Anthropic Configuration (optional for Pro users)
+        # Only include if explicitly set - Claude Code Pro users don't need this
+        # If not set, Claude CLI will use Pro account credentials from 'claude auth login'
         "ANTHROPIC_API_KEY": os.getenv("ANTHROPIC_API_KEY"),
-        
+
         # GitHub Configuration (optional)
         # GITHUB_PAT is optional - if not set, will use default gh auth
         "GITHUB_PAT": os.getenv("GITHUB_PAT"),
