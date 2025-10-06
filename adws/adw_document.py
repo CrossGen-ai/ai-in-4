@@ -33,7 +33,7 @@ from adw_modules.workflow_ops import (
     format_issue_message,
     find_spec_file,
 )
-from adw_modules.utils import setup_logger
+from adw_modules.utils import setup_logger, check_env_vars
 from adw_modules.data_types import GitHubIssue, AgentTemplateRequest, DocumentationResult, IssueClassSlashCommand
 from adw_modules.agent import execute_template
 
@@ -47,28 +47,6 @@ from adw_modules.rich_logging import (
 
 # Agent name constant
 AGENT_DOCUMENTER = "documenter"
-
-
-def check_env_vars(logger: Optional[logging.Logger] = None) -> None:
-    """Check that all required environment variables are set."""
-    required_vars = [
-        "ANTHROPIC_API_KEY",
-        "CLAUDE_CODE_PATH",
-    ]
-    
-    missing_vars = []
-    for var in required_vars:
-        if not os.getenv(var):
-            missing_vars.append(var)
-    
-    if missing_vars:
-        msg = f"Missing required environment variables: {', '.join(missing_vars)}"
-        if logger:
-            logger.error(msg)
-        else:
-            print(f"Error: {msg}")
-        sys.exit(1)
-
 
 
 def check_for_changes(logger: logging.Logger) -> bool:

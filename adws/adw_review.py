@@ -46,7 +46,7 @@ from adw_modules.workflow_ops import (
     find_spec_file,
     AGENT_IMPLEMENTOR,
 )
-from adw_modules.utils import setup_logger, parse_json
+from adw_modules.utils import setup_logger, parse_json, check_env_vars
 from adw_modules.data_types import (
     GitHubIssue,
     AgentTemplateRequest,
@@ -72,27 +72,6 @@ AGENT_REVIEW_PATCH_IMPLEMENTOR = "review_patch_implementor"
 
 # Maximum number of review retry attempts after resolution
 MAX_REVIEW_RETRY_ATTEMPTS = 3
-
-
-def check_env_vars(logger: Optional[logging.Logger] = None) -> None:
-    """Check that all required environment variables are set."""
-    required_vars = [
-        "ANTHROPIC_API_KEY",
-        "CLAUDE_CODE_PATH",
-    ]
-    missing_vars = [var for var in required_vars if not os.getenv(var)]
-
-    if missing_vars:
-        error_msg = "Error: Missing required environment variables:"
-        if logger:
-            logger.error(error_msg)
-            for var in missing_vars:
-                logger.error(f"  - {var}")
-        else:
-            print(error_msg, file=sys.stderr)
-            for var in missing_vars:
-                print(f"  - {var}", file=sys.stderr)
-        sys.exit(1)
 
 
 def run_review(

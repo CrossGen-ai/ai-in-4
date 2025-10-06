@@ -44,7 +44,7 @@ from adw_modules.github import (
     make_issue_comment,
     get_repo_url,
 )
-from adw_modules.utils import make_adw_id, setup_logger, parse_json
+from adw_modules.utils import make_adw_id, setup_logger, parse_json, check_env_vars
 from adw_modules.state import ADWState
 from adw_modules.git_ops import commit_changes, finalize_git_operations
 from adw_modules.workflow_ops import (
@@ -72,27 +72,6 @@ AGENT_BRANCH_GENERATOR = "branch_generator"
 # Maximum number of test retry attempts after resolution
 MAX_TEST_RETRY_ATTEMPTS = 4
 MAX_E2E_TEST_RETRY_ATTEMPTS = 2  # E2E ui tests
-
-
-def check_env_vars(logger: Optional[logging.Logger] = None) -> None:
-    """Check that all required environment variables are set."""
-    required_vars = [
-        "ANTHROPIC_API_KEY",
-        "CLAUDE_CODE_PATH",
-    ]
-    missing_vars = [var for var in required_vars if not os.getenv(var)]
-
-    if missing_vars:
-        error_msg = "Error: Missing required environment variables:"
-        if logger:
-            logger.error(error_msg)
-            for var in missing_vars:
-                logger.error(f"  - {var}")
-        else:
-            print(error_msg, file=sys.stderr)
-            for var in missing_vars:
-                print(f"  - {var}", file=sys.stderr)
-        sys.exit(1)
 
 
 def parse_args(

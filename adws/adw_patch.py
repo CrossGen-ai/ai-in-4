@@ -48,7 +48,7 @@ from adw_modules.workflow_ops import (
     create_or_find_branch,
     AGENT_IMPLEMENTOR,
 )
-from adw_modules.utils import setup_logger
+from adw_modules.utils import setup_logger, check_env_vars
 from adw_modules.data_types import (
     GitHubIssue,
     AgentTemplateRequest,
@@ -67,27 +67,6 @@ from adw_modules.rich_logging import (
 # Agent name constants
 AGENT_PATCH_PLANNER = "patch_planner"
 AGENT_PATCH_IMPLEMENTOR = "patch_implementor"
-
-
-def check_env_vars(logger: Optional[logging.Logger] = None) -> None:
-    """Check that all required environment variables are set."""
-    required_vars = [
-        "ANTHROPIC_API_KEY",
-        "CLAUDE_CODE_PATH",
-    ]
-    missing_vars = [var for var in required_vars if not os.getenv(var)]
-
-    if missing_vars:
-        error_msg = "Error: Missing required environment variables:"
-        if logger:
-            logger.error(error_msg)
-            for var in missing_vars:
-                logger.error(f"  - {var}")
-        else:
-            print(error_msg, file=sys.stderr)
-            for var in missing_vars:
-                print(f"  - {var}", file=sys.stderr)
-        sys.exit(1)
 
 
 def get_patch_content(
