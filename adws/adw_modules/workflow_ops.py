@@ -12,6 +12,7 @@ from adw_modules.data_types import (
     GitHubIssue,
     AgentPromptResponse,
     IssueClassSlashCommand,
+    ADWExtractionResult,
 )
 from adw_modules.agent import execute_template
 from adw_modules.github import get_repo_url, extract_repo_path, ADW_BOT_IDENTIFIER
@@ -51,11 +52,9 @@ def format_issue_message(
     return f"{ADW_BOT_IDENTIFIER} {adw_id}_{agent_name}: {message}"
 
 
-def extract_adw_info(
-    text: str, temp_adw_id: str
-) -> Tuple[Optional[str], Optional[str]]:
-    """Extract ADW workflow and ID from text using classify_adw agent.
-    Returns (workflow_command, adw_id) tuple."""
+def extract_adw_info(text: str, temp_adw_id: str) -> ADWExtractionResult:
+    """Extract ADW workflow, ID, and model_set from text using classify_adw agent.
+    Returns ADWExtractionResult with workflow_command, adw_id, and model_set."""
 
     # Use classify_adw to extract structured info
     request = AgentTemplateRequest(
@@ -70,7 +69,7 @@ def extract_adw_info(
 
         if not response.success:
             print(f"Failed to classify ADW: {response.output}")
-            return None, None
+            return ADWExtractionResult()  # Empty result
 
         # Parse JSON response using utility that handles markdown
         try:
@@ -79,20 +78,25 @@ def extract_adw_info(
                 "/", ""
             )  # Remove slash
             adw_id = data.get("adw_id")
+            model_set = data.get("model_set", "base")  # Default to "base"
 
             # Validate command
             if adw_command and adw_command in AVAILABLE_ADW_WORKFLOWS:
-                return adw_command, adw_id
+                return ADWExtractionResult(
+                    workflow_command=adw_command,
+                    adw_id=adw_id,
+                    model_set=model_set
+                )
 
-            return None, None
+            return ADWExtractionResult()  # Empty result
 
         except ValueError as e:
             print(f"Failed to parse classify_adw response: {e}")
-            return None, None
+            return ADWExtractionResult()  # Empty result
 
     except Exception as e:
         print(f"Error calling classify_adw: {e}")
-        return None, None
+        return ADWExtractionResult()  # Empty result
 
 
 def classify_issue(

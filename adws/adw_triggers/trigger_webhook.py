@@ -92,6 +92,7 @@ async def github_webhook(request: Request):
 
         workflow = None
         provided_adw_id = None
+        model_set = "base"  # Default model set
         trigger_reason = ""
         content_to_check = ""
 
@@ -104,7 +105,10 @@ async def github_webhook(request: Request):
             if "adw_" in issue_body.lower():
                 # Use temporary ID for classification
                 temp_id = make_adw_id()
-                workflow, provided_adw_id = extract_adw_info(issue_body, temp_id)
+                result = extract_adw_info(issue_body, temp_id)
+                workflow = result.workflow_command
+                provided_adw_id = result.adw_id
+                model_set = result.model_set
                 if workflow:
                     trigger_reason = f"New issue with {workflow} workflow"
 
@@ -124,7 +128,10 @@ async def github_webhook(request: Request):
             elif "adw_" in comment_body.lower():
                 # Use temporary ID for classification
                 temp_id = make_adw_id()
-                workflow, provided_adw_id = extract_adw_info(comment_body, temp_id)
+                result = extract_adw_info(comment_body, temp_id)
+                workflow = result.workflow_command
+                provided_adw_id = result.adw_id
+                model_set = result.model_set
                 if workflow:
                     trigger_reason = f"Comment with {workflow} workflow"
 
@@ -146,12 +153,12 @@ async def github_webhook(request: Request):
                 # Try to load existing state first
                 state = ADWState.load(provided_adw_id)
                 if state:
-                    # Update only the issue_number if state exists
-                    state.update(issue_number=str(issue_number))
+                    # Update issue_number and model_set if state exists
+                    state.update(issue_number=str(issue_number), model_set=model_set)
                 else:
                     # Only create new state if it doesn't exist
                     state = ADWState(provided_adw_id)
-                    state.update(adw_id=provided_adw_id, issue_number=str(issue_number))
+                    state.update(adw_id=provided_adw_id, issue_number=str(issue_number), model_set=model_set)
                 state.save("webhook_trigger")
 
             # Set up logger
