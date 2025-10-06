@@ -8,8 +8,25 @@
 
 **For humans: Use these commands for everyday tasks.**
 
+### Understanding Workflow Types
+
+ADW has two execution modes:
+
+**Standard Workflows** - Use main repository branch
+- Work directly in your main repo directory
+- One issue at a time (sequential processing)
+- Uses git branches for isolation
+- Best for: Single issues, simple changes
+
+**ISO Workflows** - Use isolated git worktrees
+- Create separate working directory per issue
+- Multiple issues simultaneously (parallel processing)
+- Each gets unique ports (no conflicts)
+- Best for: Batch processing, parallel execution
+
 ### Process an Issue End-to-End
 
+**Standard Mode (uses branch in main repo):**
 ```bash
 # Full workflow: Plan → Build → Test → Review → Document
 uv run adws/adw_sdlc.py <issue-number>
@@ -18,8 +35,29 @@ uv run adws/adw_sdlc.py <issue-number>
 uv run adws/adw_sdlc.py 123
 ```
 
+**ISO Mode (uses isolated git worktree):**
+```bash
+# Same workflow but in isolated environment
+uv run adws/adw_sdlc_iso.py <issue-number>
+
+# Example: Process issue #123 in isolation
+uv run adws/adw_sdlc_iso.py 123
+# Creates: .worktrees/a1b2c3d4/ with unique ports
+```
+
+**ZTE Mode (Zero Touch Execution - fully autonomous):**
+```bash
+# Autonomous workflow with self-healing and auto-deployment
+uv run adws/adw_sdlc_zte_iso.py <issue-number>
+
+# Example: Fully autonomous processing of issue #123
+uv run adws/adw_sdlc_zte_iso.py 123
+# Automatically handles errors, retries, and deploys when ready
+```
+
 ### Quick Workflows
 
+**Standard (in main repo):**
 ```bash
 # Just plan and build (fastest)
 uv run adws/adw_plan_build.py <issue-number>
@@ -29,6 +67,30 @@ uv run adws/adw_plan_build_test.py <issue-number>
 
 # Plan, build, test, and review (no docs)
 uv run adws/adw_plan_build_test_review.py <issue-number>
+```
+
+**ISO (isolated worktree):**
+```bash
+# Same workflows but isolated - add _iso suffix
+uv run adws/adw_plan_build_iso.py <issue-number>
+uv run adws/adw_plan_build_test_iso.py <issue-number>
+uv run adws/adw_plan_build_test_review_iso.py <issue-number>
+```
+
+### Process Multiple Issues in Parallel (ISO only)
+
+```bash
+# Process 5 issues simultaneously - each in isolated worktree
+uv run adws/adw_sdlc_iso.py 101 &
+uv run adws/adw_sdlc_iso.py 102 &
+uv run adws/adw_sdlc_iso.py 103 &
+uv run adws/adw_sdlc_iso.py 104 &
+uv run adws/adw_sdlc_iso.py 105 &
+wait
+
+# Result: 5x faster than sequential processing
+# Each gets isolated workspace at .worktrees/<adw-id>/
+# Each gets unique ports (no conflicts)
 ```
 
 ### Auto-Process All New Issues
@@ -43,6 +105,7 @@ uv run adws/adw_triggers/trigger_webhook.py
 
 ### Run Individual Phases
 
+**Standard mode:**
 ```bash
 # Planning only
 uv run adws/adw_plan.py <issue-number>
@@ -58,6 +121,16 @@ uv run adws/adw_review.py <issue-number> <adw-id>
 
 # Documentation only
 uv run adws/adw_document.py <issue-number> <adw-id>
+```
+
+**ISO mode (add _iso suffix):**
+```bash
+# Each phase in isolated worktree
+uv run adws/adw_plan_iso.py <issue-number>
+uv run adws/adw_build_iso.py <issue-number> <adw-id>
+uv run adws/adw_test_iso.py <issue-number> <adw-id>
+uv run adws/adw_review_iso.py <issue-number> <adw-id>
+uv run adws/adw_document_iso.py <issue-number> <adw-id>
 ```
 
 ### Prerequisites
@@ -227,6 +300,18 @@ wait
 **Purpose:** Single execution environment, sequential processing
 **Use When:** Processing issues one at a time
 **Workspace:** Main repository directory
+**Isolation Method:** Git branches (feature branches)
+
+**How It Works:**
+```
+Your Repo: /Users/you/project/
+├── .git/
+├── app/
+└── adws/
+
+Workflow creates branch: feat-123-a1b2c3d4-add-feature
+All work happens in main repo on this branch
+```
 
 **Available Workflows:**
 
@@ -250,17 +335,60 @@ adw_sdlc.py                          # Plan → Build → Test → Review → Do
 
 ### ISO Workflows (Isolated Execution)
 
-**Purpose:** Parallel execution in isolated worktrees
+**Purpose:** Parallel execution in isolated git worktrees
 **Use When:** Processing multiple issues simultaneously (15x throughput)
-**Workspace:** Dedicated worktree per ADW ID
+**Workspace:** Dedicated git worktree per ADW ID
+**Isolation Method:** Git worktrees (separate working directories)
 **Ports:** Dynamically allocated (9100-9114 backend, 9200-9214 frontend)
 
+**How It Works:**
+```
+Main Repo: /Users/you/project/
+├── .git/                           # Shared git database
+├── app/
+└── adws/
+
+Worktree 1: /Users/you/project/.worktrees/a1b2c3d4/
+├── .git                            # Linked to main .git
+├── .ports.env                      # BACKEND_PORT=9101, FRONTEND_PORT=9201
+├── app/                            # Isolated copy
+└── adws/                           # Isolated copy
+    └── Running on branch: feat-123-a1b2c3d4-add-feature
+
+Worktree 2: /Users/you/project/.worktrees/e5f6g7h8/
+├── .git                            # Linked to main .git
+├── .ports.env                      # BACKEND_PORT=9102, FRONTEND_PORT=9202
+├── app/                            # Isolated copy (different issue)
+└── adws/                           # Isolated copy
+    └── Running on branch: bug-456-e5f6g7h8-fix-login
+
+Both worktrees share the same .git database but have:
+- Separate working directories (no file conflicts)
+- Separate branches (no git conflicts)
+- Separate ports (no server conflicts)
+- Can run dev servers simultaneously
+```
+
+**Git Worktree vs Branch:**
+
+| Aspect | Standard (Branch) | ISO (Worktree) |
+|--------|------------------|----------------|
+| Working Directory | Single (main repo) | Multiple (one per worktree) |
+| Branch Switching | `git checkout` changes files | No switching, each worktree on different branch |
+| Parallel Work | ❌ Must finish before next | ✅ Multiple workflows simultaneously |
+| File Conflicts | ⚠️ Possible when switching | ✅ Impossible (separate directories) |
+| Dev Servers | ⚠️ Only one at a time | ✅ Multiple with unique ports |
+| Performance | Sequential (1x) | Parallel (up to 15x) |
+| Cleanup | `git branch -d` | `git worktree remove` |
+
 **Key Differences from Standard:**
-- ✅ Creates isolated git worktree
-- ✅ Allocates unique ports (no conflicts)
+- ✅ Creates isolated git worktree (separate working directory)
+- ✅ Allocates unique ports (no conflicts, multiple dev servers)
 - ✅ Writes `.ports.env` for app configuration
-- ✅ Enables true parallel execution
-- ✅ Zero interference between workflows
+- ✅ Enables true parallel execution (15 workflows simultaneously)
+- ✅ Zero interference between workflows (separate filesystems)
+- ✅ Each worktree can run tests independently
+- ✅ Changes committed to different branches from isolated locations
 
 **Available ISO Workflows (14 total):**
 
@@ -284,17 +412,90 @@ adw_sdlc_zte_iso.py                  # Full SDLC with Zero Touch Execution
 adw_ship_iso.py                      # Build → Test → Deploy (isolated)
 ```
 
+### ZTE Workflows (Zero Touch Execution)
+
+**Purpose:** Fully autonomous operation with self-healing
+**Use When:** Production automation, continuous deployment
+**Workspace:** ISO worktree (always isolated)
+**Autonomy Level:** Level 5 - Full autonomous operation
+
+**What Makes ZTE Different:**
+
+| Feature | Standard/ISO | ZTE (Zero Touch Execution) |
+|---------|-------------|---------------------------|
+| Error Handling | Manual intervention needed | ✅ Self-healing, auto-retry |
+| Test Failures | Requires manual fix | ✅ Automatic resolution (up to 5 attempts) |
+| Deployment | Manual approval | ✅ Auto-deploy when tests pass |
+| Monitoring | Manual status checks | ✅ Continuous self-monitoring |
+| Recovery | Manual rollback | ✅ Automatic rollback on failure |
+| Human Involvement | Required for decisions | ✅ Fully autonomous (zero touch) |
+
+**ZTE Capabilities:**
+
+1. **Self-Healing**
+   - Automatically detects and fixes test failures
+   - Retries failed operations with different strategies
+   - Learns from previous failures
+
+2. **Auto-Deployment**
+   - Deploys to staging when tests pass
+   - Runs smoke tests in staging
+   - Auto-promotes to production if stable
+
+3. **Continuous Monitoring**
+   - Tracks workflow health in real-time
+   - Reports metrics to KPI dashboard
+   - Alerts on anomalies
+
+4. **Automatic Rollback**
+   - Detects production failures
+   - Automatically reverts to last stable version
+   - Creates incident report
+
+**Available ZTE Workflows:**
+
+```bash
+adw_sdlc_zte_iso.py      # Full SDLC with Zero Touch Execution
+                         # Autonomous: Plan → Build → Test → Review →
+                         # Document → Deploy → Monitor
+```
+
+**Example ZTE Workflow:**
+```bash
+# Start autonomous processing
+uv run adws/adw_sdlc_zte_iso.py 123
+
+# What happens automatically (no human intervention):
+# 1. Creates isolated worktree
+# 2. Plans implementation
+# 3. Implements solution
+# 4. Runs tests (auto-fixes failures up to 5 attempts)
+# 5. Reviews implementation
+# 6. Generates documentation
+# 7. Deploys to staging
+# 8. Runs smoke tests
+# 9. Promotes to production (if tests pass)
+# 10. Monitors for 24 hours
+# 11. Auto-rollback if issues detected
+# 12. Updates KPI dashboard
+# 13. Cleans up worktree
+
+# Result: Fully autonomous software delivery
+```
+
 ### Workflow Selection Matrix
 
 | Scenario | Recommended Workflow | Why |
 |----------|---------------------|-----|
-| Single issue, quick fix | `adw_plan_build.py` | Fast, no testing overhead |
-| Single issue, production code | `adw_sdlc.py` | Full validation, documentation |
+| Single issue, quick fix | `adw_plan_build.py` | Fast, no testing overhead, main repo |
+| Single issue, production code | `adw_sdlc.py` | Full validation, documentation, main repo |
 | Multiple issues (5-15) | `adw_sdlc_iso.py` (parallel) | 15x throughput via worktrees |
-| Hot fix needed | `adw_patch.py` | Skips planning, direct patch |
-| Experimental feature | `adw_plan_build_test_iso.py` | Isolated, won't affect main |
+| Hot fix needed | `adw_patch.py` | Skips planning, direct patch, main repo |
+| Experimental feature | `adw_plan_build_test_iso.py` | Isolated worktree, won't affect main |
 | Documentation update | `adw_plan_build_document.py` | Skips testing, focuses on docs |
 | Code review changes | `adw_build_iso.py` | Isolated implementation only |
+| Continuous delivery | `adw_sdlc_zte_iso.py` | Fully autonomous, self-healing, auto-deploy |
+| Batch processing | `adw_sdlc_iso.py` (parallel) | Process multiple issues simultaneously |
 
 ---
 
