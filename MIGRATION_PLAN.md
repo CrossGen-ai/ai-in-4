@@ -1394,8 +1394,8 @@ code --diff ~/Teaching/tac-7/.claude/commands/start.md \
 ```
 
 **Checklist:**
-- [ ] Files open in diff view
-- [ ] Identified port configuration section
+- [x] Files open in diff view
+- [x] Identified port configuration section
 
 ---
 
@@ -1433,9 +1433,9 @@ PORT: If `.ports.env` exists, read FRONTEND_PORT from it, otherwise default to 5
 ```
 
 **Checklist:**
-- [ ] Variables section updated
-- [ ] Instructions section updated
-- [ ] Port detection logic added
+- [x] Variables section updated
+- [x] Instructions section updated (Workflow section)
+- [x] Port detection logic added
 
 ---
 
@@ -1451,9 +1451,9 @@ echo "FRONTEND_PORT=9999" > .ports.env
 ```
 
 **Checklist:**
-- [ ] Test file created
-- [ ] Start command detects .ports.env
-- [ ] Uses custom port when file exists
+- [x] Test file created
+- [x] Start command detects .ports.env
+- [x] Uses custom port when file exists (logic verified)
 
 **Cleanup:**
 ```bash
