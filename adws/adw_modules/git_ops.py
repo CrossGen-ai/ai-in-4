@@ -12,20 +12,35 @@ from typing import Optional, Tuple
 from adw_modules.github import get_repo_url, extract_repo_path, make_issue_comment
 
 
-def get_current_branch() -> str:
-    """Get current git branch name."""
+def get_current_branch(cwd: Optional[str] = None) -> str:
+    """Get current git branch name.
+
+    Args:
+        cwd: Working directory for git command
+    """
     result = subprocess.run(
         ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-        capture_output=True, text=True
+        capture_output=True,
+        text=True,
+        cwd=cwd,
     )
     return result.stdout.strip()
 
 
-def push_branch(branch_name: str) -> Tuple[bool, Optional[str]]:
-    """Push current branch to remote. Returns (success, error_message)."""
+def push_branch(
+    branch_name: str, cwd: Optional[str] = None
+) -> Tuple[bool, Optional[str]]:
+    """Push current branch to remote. Returns (success, error_message).
+
+    Args:
+        branch_name: Name of the branch to push
+        cwd: Working directory for git command
+    """
     result = subprocess.run(
         ["git", "push", "-u", "origin", branch_name],
-        capture_output=True, text=True
+        capture_output=True,
+        text=True,
+        cwd=cwd,
     )
     if result.returncode != 0:
         return False, result.stderr
@@ -52,12 +67,18 @@ def check_pr_exists(branch_name: str) -> Optional[str]:
     return None
 
 
-def create_branch(branch_name: str) -> Tuple[bool, Optional[str]]:
-    """Create and checkout a new branch. Returns (success, error_message)."""
+def create_branch(
+    branch_name: str, cwd: Optional[str] = None
+) -> Tuple[bool, Optional[str]]:
+    """Create and checkout a new branch. Returns (success, error_message).
+
+    Args:
+        branch_name: Name of the branch to create
+        cwd: Working directory for git command
+    """
     # Create branch
     result = subprocess.run(
-        ["git", "checkout", "-b", branch_name],
-        capture_output=True, text=True
+        ["git", "checkout", "-b", branch_name], capture_output=True, text=True, cwd=cwd
     )
     if result.returncode != 0:
         # Check if error is because branch already exists
@@ -65,7 +86,9 @@ def create_branch(branch_name: str) -> Tuple[bool, Optional[str]]:
             # Try to checkout existing branch
             result = subprocess.run(
                 ["git", "checkout", branch_name],
-                capture_output=True, text=True
+                capture_output=True,
+                text=True,
+                cwd=cwd,
             )
             if result.returncode != 0:
                 return False, result.stderr
@@ -74,62 +97,81 @@ def create_branch(branch_name: str) -> Tuple[bool, Optional[str]]:
     return True, None
 
 
-def commit_changes(message: str) -> Tuple[bool, Optional[str]]:
-    """Stage all changes and commit. Returns (success, error_message)."""
+def commit_changes(
+    message: str, cwd: Optional[str] = None
+) -> Tuple[bool, Optional[str]]:
+    """Stage all changes and commit. Returns (success, error_message).
+
+    Args:
+        message: Commit message
+        cwd: Working directory for git command
+    """
     # Check if there are changes to commit
-    result = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
+    result = subprocess.run(
+        ["git", "status", "--porcelain"], capture_output=True, text=True, cwd=cwd
+    )
     if not result.stdout.strip():
         return True, None  # No changes to commit
-    
+
     # Stage all changes
-    result = subprocess.run(["git", "add", "-A"], capture_output=True, text=True)
+    result = subprocess.run(
+        ["git", "add", "-A"], capture_output=True, text=True, cwd=cwd
+    )
     if result.returncode != 0:
         return False, result.stderr
-    
+
     # Commit
     result = subprocess.run(
-        ["git", "commit", "-m", message],
-        capture_output=True, text=True
+        ["git", "commit", "-m", message], capture_output=True, text=True, cwd=cwd
     )
     if result.returncode != 0:
         return False, result.stderr
     return True, None
 
 
-def finalize_git_operations(state: 'ADWState', logger: logging.Logger) -> None:
-    """Standard git finalization: push branch and create/update PR."""
+def finalize_git_operations(
+    state: "ADWState", logger: logging.Logger, cwd: Optional[str] = None
+) -> None:
+    """Standard git finalization: push branch and create/update PR.
+
+    Args:
+        state: ADW state containing branch and issue info
+        logger: Logger instance
+        cwd: Working directory for git commands
+    """
     branch_name = state.get("branch_name")
     if not branch_name:
         # Fallback: use current git branch if not main
-        current_branch = get_current_branch()
+        current_branch = get_current_branch(cwd=cwd)
         if current_branch and current_branch != "main":
-            logger.warning(f"No branch name in state, using current branch: {current_branch}")
+            logger.warning(
+                f"No branch name in state, using current branch: {current_branch}"
+            )
             branch_name = current_branch
         else:
-            logger.error("No branch name in state and current branch is main, skipping git operations")
+            logger.error(
+                "No branch name in state and current branch is main, skipping git operations"
+            )
             return
-    
+
     # Always push
-    success, error = push_branch(branch_name)
+    success, error = push_branch(branch_name, cwd=cwd)
     if not success:
         logger.error(f"Failed to push branch: {error}")
         return
-    
+
     logger.info(f"Pushed branch: {branch_name}")
-    
+
     # Handle PR
     pr_url = check_pr_exists(branch_name)
     issue_number = state.get("issue_number")
     adw_id = state.get("adw_id")
-    
+
     if pr_url:
         logger.info(f"Found existing PR: {pr_url}")
         # Post PR link for easy reference
         if issue_number and adw_id:
-            make_issue_comment(
-                issue_number,
-                f"{adw_id}_ops: ✅ Pull request: {pr_url}"
-            )
+            make_issue_comment(issue_number, f"{adw_id}_ops: ✅ Pull request: {pr_url}")
     else:
         # Create new PR - fetch issue data first
         if issue_number:
@@ -137,23 +179,24 @@ def finalize_git_operations(state: 'ADWState', logger: logging.Logger) -> None:
                 repo_url = get_repo_url()
                 repo_path = extract_repo_path(repo_url)
                 from adw_modules.github import fetch_issue
+
                 issue = fetch_issue(issue_number, repo_path)
-                
+
                 from adw_modules.workflow_ops import create_pull_request
-                pr_url, error = create_pull_request(branch_name, issue, state, logger)
+
+                pr_url, error = create_pull_request(branch_name, issue, state, logger, cwd)
             except Exception as e:
                 logger.error(f"Failed to fetch issue for PR creation: {e}")
                 pr_url, error = None, str(e)
         else:
             pr_url, error = None, "No issue number in state"
-        
+
         if pr_url:
             logger.info(f"Created PR: {pr_url}")
             # Post new PR link
             if issue_number and adw_id:
                 make_issue_comment(
-                    issue_number,
-                    f"{adw_id}_ops: ✅ Pull request created: {pr_url}"
+                    issue_number, f"{adw_id}_ops: ✅ Pull request created: {pr_url}"
                 )
         else:
             logger.error(f"Failed to create PR: {error}")
