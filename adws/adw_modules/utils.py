@@ -7,7 +7,7 @@ import re
 import sys
 import uuid
 from datetime import datetime
-from typing import Any, TypeVar, Type, Union, Dict
+from typing import Any, TypeVar, Type, Union, Dict, Optional
 
 T = TypeVar('T')
 
@@ -158,13 +158,41 @@ def parse_json(text: str, target_type: Type[T] = None) -> Union[T, Any]:
         raise ValueError(f"Failed to parse JSON: {e}. Text was: {json_str[:200]}...")
 
 
+def check_env_vars(logger: Optional[logging.Logger] = None) -> None:
+    """Check that all required environment variables are set.
+
+    Args:
+        logger: Optional logger instance for error reporting
+
+    Raises:
+        SystemExit: If required environment variables are missing
+    """
+    required_vars = [
+        "ANTHROPIC_API_KEY",
+        "CLAUDE_CODE_PATH",
+    ]
+    missing_vars = [var for var in required_vars if not os.getenv(var)]
+
+    if missing_vars:
+        error_msg = "Error: Missing required environment variables:"
+        if logger:
+            logger.error(error_msg)
+            for var in missing_vars:
+                logger.error(f"  - {var}")
+        else:
+            print(error_msg, file=sys.stderr)
+            for var in missing_vars:
+                print(f"  - {var}", file=sys.stderr)
+        sys.exit(1)
+
+
 def get_safe_subprocess_env() -> Dict[str, str]:
     """Get filtered environment variables safe for subprocess execution.
-    
+
     Returns only the environment variables needed for ADW workflows based on
     .env.sample configuration. This prevents accidental exposure of sensitive
     credentials to subprocesses.
-    
+
     Returns:
         Dictionary containing only required environment variables
     """
