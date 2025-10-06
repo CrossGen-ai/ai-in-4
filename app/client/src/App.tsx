@@ -1,26 +1,35 @@
-import { Layout } from './components/layout/Layout';
-import { Button } from './components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { Landing } from './pages/Landing';
+import { Register } from './pages/Register';
+import { ThankYou } from './pages/ThankYou';
+import { Login } from './pages/Login';
+import { DevLogin } from './pages/DevLogin';
+import { CourseLanding } from './pages/CourseLanding';
 
 function App() {
   return (
-    <Layout>
-      <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Welcome</CardTitle>
-            <CardDescription>
-              React + TypeScript + Tailwind v4 + Shadcn + FastAPI
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => alert('Hello!')}>
-              Click me
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    </Layout>
+    <BrowserRouter>
+      <AuthProvider>
+        <Routes>
+          <Route path="/" element={<Landing />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/thank-you" element={<ThankYou />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/dev-login" element={<DevLogin />} />
+          <Route
+            path="/courses"
+            element={
+              <ProtectedRoute>
+                <CourseLanding />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
 

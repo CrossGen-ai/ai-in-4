@@ -20,4 +20,10 @@ app.add_middleware(
 # Routes
 app.include_router(health.router, prefix="/api", tags=["health"])
 
-# Add your routers here
+# Import route modules
+from api.routes import auth, users, courses
+
+# Register routers
+app.include_router(auth.router, prefix="/api/auth", tags=["authentication"])
+app.include_router(users.router, prefix="/api/users", tags=["users"])
+app.include_router(courses.router, prefix="/api/courses", tags=["courses"])
