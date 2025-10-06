@@ -6,6 +6,7 @@ import os
 import json
 import re
 import logging
+import time
 from typing import Optional, List, Dict, Any, Tuple, Final
 from dotenv import load_dotenv
 from .data_types import (
@@ -14,6 +15,8 @@ from .data_types import (
     AgentTemplateRequest,
     ClaudeCodeResultMessage,
     SlashCommand,
+    ModelSet,
+    RetryCode,
 )
 
 # Load environment variables
@@ -23,36 +26,62 @@ load_dotenv()
 CLAUDE_PATH = os.getenv("CLAUDE_CODE_PATH", "claude")
 
 # Model selection mapping for slash commands
-# Maps slash command to preferred model
-SLASH_COMMAND_MODEL_MAP: Final[Dict[SlashCommand, str]] = {
-    # Issue classification
-    "/classify_issue": "sonnet",
-    "/classify_adw": "sonnet",
-    # Branch operations
-    "/generate_branch_name": "sonnet",
-    # Implementation tasks
-    "/implement": "opus",
-    # Testing and debugging
-    "/test": "sonnet",
-    "/resolve_failed_test": "sonnet",
-    "/test_e2e": "sonnet",
-    "/resolve_failed_e2e_test": "sonnet",
-    # Review
-    "/review": "opus",
-    # Documentation
-    "/document": "sonnet",
-    # Git operations
-    "/commit": "sonnet",
-    "/pull_request": "sonnet",
-    # Issue types + planning
-    "/chore": "sonnet",
-    "/bug": "opus",
-    "/feature": "opus",
-    "/patch": "opus",
+# Maps each command to its model configuration for base and heavy model sets
+SLASH_COMMAND_MODEL_MAP: Final[Dict[SlashCommand, Dict[ModelSet, str]]] = {
+    "/classify_issue": {"base": "sonnet", "heavy": "sonnet"},
+    "/classify_adw": {"base": "sonnet", "heavy": "sonnet"},
+    "/generate_branch_name": {"base": "sonnet", "heavy": "sonnet"},
+    "/implement": {"base": "sonnet", "heavy": "opus"},
+    "/test": {"base": "sonnet", "heavy": "sonnet"},
+    "/resolve_failed_test": {"base": "sonnet", "heavy": "opus"},
+    "/test_e2e": {"base": "sonnet", "heavy": "sonnet"},
+    "/resolve_failed_e2e_test": {"base": "sonnet", "heavy": "opus"},
+    "/review": {"base": "sonnet", "heavy": "sonnet"},
+    "/document": {"base": "sonnet", "heavy": "opus"},
+    "/commit": {"base": "sonnet", "heavy": "sonnet"},
+    "/pull_request": {"base": "sonnet", "heavy": "sonnet"},
+    "/chore": {"base": "sonnet", "heavy": "opus"},
+    "/bug": {"base": "sonnet", "heavy": "opus"},
+    "/feature": {"base": "sonnet", "heavy": "opus"},
+    "/patch": {"base": "sonnet", "heavy": "opus"},
 }
 
 
-def get_model_for_slash_command(slash_command: str, default: str = "sonnet") -> str:
+def get_model_for_slash_command(
+    request: AgentTemplateRequest, default: str = "sonnet"
+) -> str:
+    """Get the appropriate model for a template request based on ADW state and slash command.
+
+    This function loads the ADW state to determine the model set (base or heavy)
+    and returns the appropriate model for the slash command.
+
+    Args:
+        request: The template request containing the slash command and adw_id
+        default: Default model if not found in mapping
+
+    Returns:
+        Model name to use (e.g., "sonnet" or "opus")
+    """
+    # Import here to avoid circular imports
+    from .state import ADWState
+
+    # Load state to get model_set
+    model_set: ModelSet = "base"  # Default model set
+    state = ADWState.load(request.adw_id)
+    if state:
+        model_set = state.get("model_set", "base")
+
+    # Get the model configuration for the command
+    command_config = SLASH_COMMAND_MODEL_MAP.get(request.slash_command)
+
+    if command_config:
+        # Get the model for the specified model set, defaulting to base if not found
+        return command_config.get(model_set, command_config.get("base", default))
+
+    return default
+
+
+def _legacy_get_model_for_slash_command(slash_command: str, default: str = "sonnet") -> str:
     """Get the recommended model for a slash command.
 
     Args:
@@ -172,6 +201,54 @@ def save_prompt(prompt: str, adw_id: str, agent_name: str = "ops") -> None:
     print(f"Saved prompt to: {prompt_file}")
 
 
+def prompt_claude_code_with_retry(
+    request: AgentPromptRequest,
+    max_retries: int = 3,
+    retry_delays: List[int] = None,
+) -> AgentPromptResponse:
+    """Execute Claude Code with retry logic for certain error types.
+
+    Args:
+        request: The prompt request configuration
+        max_retries: Maximum number of retry attempts (default: 3)
+        retry_delays: List of delays in seconds between retries (default: [1, 3, 5])
+
+    Returns:
+        AgentPromptResponse with output and success status
+    """
+    if retry_delays is None:
+        retry_delays = [1, 3, 5]
+
+    # Ensure we have enough delays for max_retries
+    while len(retry_delays) < max_retries:
+        retry_delays.append(retry_delays[-1] + 2)  # Add incrementing delays
+
+    last_response = None
+
+    for attempt in range(max_retries + 1):  # +1 for initial attempt
+        if attempt > 0:
+            # This is a retry
+            delay = retry_delays[attempt - 1]
+            time.sleep(delay)
+
+        response = prompt_claude_code(request)
+        last_response = response
+
+        # Success - return immediately
+        if response.success:
+            return response
+
+        # For now, we don't have retry_code in AgentPromptResponse yet
+        # So we'll just retry on failure up to max_retries
+        if attempt < max_retries:
+            continue
+        else:
+            return response
+
+    # Should not reach here, but return last response just in case
+    return last_response
+
+
 def prompt_claude_code(request: AgentPromptRequest) -> AgentPromptResponse:
     """Execute Claude Code with the given prompt configuration."""
 
@@ -205,7 +282,12 @@ def prompt_claude_code(request: AgentPromptRequest) -> AgentPromptResponse:
         # Execute Claude Code and pipe output to file
         with open(request.output_file, "w") as f:
             result = subprocess.run(
-                cmd, stdout=f, stderr=subprocess.PIPE, text=True, env=env
+                cmd,
+                stdout=f,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=env,
+                cwd=request.working_dir,  # Support working directory
             )
 
         if result.returncode == 0:
@@ -260,14 +342,26 @@ def prompt_claude_code(request: AgentPromptRequest) -> AgentPromptResponse:
 
 
 def execute_template(request: AgentTemplateRequest) -> AgentPromptResponse:
-    """Execute a Claude Code template with slash command and arguments."""
-    # Override model based on slash command mapping
-    if request.slash_command in SLASH_COMMAND_MODEL_MAP:
-        mapped_model = SLASH_COMMAND_MODEL_MAP[request.slash_command]
-        request = request.model_copy(update={"model": mapped_model})
-    else:
-        # Use default model of "sonnet" if not in mapping
-        request = request.model_copy(update={"model": "sonnet"})
+    """Execute a Claude Code template with slash command and arguments.
+
+    This function automatically selects the appropriate model based on:
+    1. The slash command being executed
+    2. The model_set stored in the ADW state (base or heavy)
+
+    Example:
+        request = AgentTemplateRequest(
+            agent_name="planner",
+            slash_command="/implement",
+            args=["plan.md"],
+            adw_id="abc12345"
+        )
+        # If state has model_set="heavy", this will use "opus"
+        # If state has model_set="base" or missing, this will use "sonnet"
+        response = execute_template(request)
+    """
+    # Get the appropriate model for this request
+    mapped_model = get_model_for_slash_command(request)
+    request = request.model_copy(update={"model": mapped_model})
 
     # Construct prompt from slash command and args
     prompt = f"{request.slash_command} {' '.join(request.args)}"
@@ -293,7 +387,8 @@ def execute_template(request: AgentTemplateRequest) -> AgentPromptResponse:
         model=request.model,
         dangerously_skip_permissions=True,
         output_file=output_file,
+        working_dir=request.working_dir,  # Pass through working_dir
     )
 
-    # Execute and return response (prompt_claude_code now handles all parsing)
-    return prompt_claude_code(prompt_request)
+    # Execute with retry logic and return response
+    return prompt_claude_code_with_retry(prompt_request)
