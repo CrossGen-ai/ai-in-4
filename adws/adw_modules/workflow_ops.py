@@ -281,9 +281,18 @@ def create_pull_request(
     issue: Optional[GitHubIssue],
     state: ADWState,
     logger: logging.Logger,
+    cwd: Optional[str] = None,
 ) -> Tuple[Optional[str], Optional[str]]:
     """Create a pull request for the implemented changes.
-    Returns (pr_url, error_message) tuple."""
+    Returns (pr_url, error_message) tuple.
+
+    Args:
+        branch_name: Name of the branch to create PR for
+        issue: GitHub issue data
+        state: ADW state containing workflow info
+        logger: Logger instance
+        cwd: Working directory for git commands (required for ISO worktrees)
+    """
 
     # Get plan file from state (may be None for test runs)
     plan_file = state.get("plan_file") or "No plan file (test run)"
@@ -317,6 +326,7 @@ def create_pull_request(
         slash_command="/pull_request",
         args=[branch_name, issue_json, plan_file, adw_id],
         adw_id=adw_id,
+        working_dir=cwd,
     )
 
     response = execute_template(request)
