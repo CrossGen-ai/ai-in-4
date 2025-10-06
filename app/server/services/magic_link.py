@@ -4,7 +4,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from db.models import User, MagicLink
 from core.config import settings
-import secrets
 import logging
 
 logger = logging.getLogger(__name__)
@@ -48,7 +47,7 @@ async def validate_magic_link(token: str, db: AsyncSession) -> tuple[User | None
     """Validate a magic link token and return the associated user and a session token."""
     try:
         # Verify token signature and extract email
-        email = serializer.loads(
+        serializer.loads(
             token,
             salt="magic-link",
             max_age=settings.MAGIC_LINK_EXPIRY_MINUTES * 60  # Convert to seconds
@@ -138,9 +137,9 @@ async def send_magic_link_email(email: str, magic_link: str):
         logger.info("MAGIC LINK EMAIL (Development Mode)")
         logger.info("=" * 80)
         logger.info(f"To: {email}")
-        logger.info(f"Subject: Your Magic Link for AI Course Platform")
+        logger.info("Subject: Your Magic Link for AI Course Platform")
         logger.info("")
-        logger.info(f"Click the link below to log in:")
+        logger.info("Click the link below to log in:")
         logger.info(f"{magic_link}")
         logger.info("")
         logger.info(f"This link will expire in {settings.MAGIC_LINK_EXPIRY_MINUTES} minutes.")

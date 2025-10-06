@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from db.database import get_db
 from models.schemas import UserResponse, UserExperienceResponse
-from services.user_service import get_user_by_id, get_user_experience
+from services.user_service import get_user_experience
 from services.magic_link import validate_session_token
 
 router = APIRouter()

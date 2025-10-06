@@ -8,7 +8,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from db.database import AsyncSessionLocal
 from db.models import User, UserExperience, Course
-from datetime import datetime, UTC
 
 
 async def seed_db():
