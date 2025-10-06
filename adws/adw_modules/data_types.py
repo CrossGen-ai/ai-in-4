@@ -3,10 +3,26 @@
 from datetime import datetime
 from typing import Optional, List, Literal
 from pydantic import BaseModel, Field
+from enum import Enum
+
+
+# Retry codes for Claude Code execution errors
+class RetryCode(str, Enum):
+    """Codes indicating different types of errors that may be retryable."""
+
+    CLAUDE_CODE_ERROR = "claude_code_error"  # General Claude Code CLI error
+    TIMEOUT_ERROR = "timeout_error"  # Command timed out
+    EXECUTION_ERROR = "execution_error"  # Error during execution
+    ERROR_DURING_EXECUTION = "error_during_execution"  # Agent encountered an error
+    NONE = "none"  # No retry needed
+
 
 # Supported slash commands for issue classification
 # These should align with your custom slash commands in .claude/commands that you want to run
 IssueClassSlashCommand = Literal["/chore", "/bug", "/feature"]
+
+# Model set types for ADW workflows
+ModelSet = Literal["base", "heavy"]
 
 # ADW workflow types
 ADWWorkflow = Literal[
@@ -201,6 +217,24 @@ class ADWStateData(BaseModel):
     branch_name: Optional[str] = None
     plan_file: Optional[str] = None
     issue_class: Optional[IssueClassSlashCommand] = None
+    worktree_path: Optional[str] = None
+    backend_port: Optional[int] = None
+    frontend_port: Optional[int] = None
+    model_set: Optional[ModelSet] = "base"  # Default to "base" model set
+    all_adws: List[str] = Field(default_factory=list)
+
+
+class ADWExtractionResult(BaseModel):
+    """Result from extracting ADW information from text."""
+
+    workflow_command: Optional[str] = None  # e.g., "adw_plan_iso" (without slash)
+    adw_id: Optional[str] = None  # 8-character ADW ID
+    model_set: Optional[ModelSet] = "base"  # Model set to use, defaults to "base"
+
+    @property
+    def has_workflow(self) -> bool:
+        """Check if a workflow command was extracted."""
+        return self.workflow_command is not None
 
 
 class ReviewIssue(BaseModel):
