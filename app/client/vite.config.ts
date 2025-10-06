@@ -30,6 +30,7 @@ export default defineConfig(({ mode }) => {
           target: apiUrl,
           changeOrigin: true,
           secure: false,
+          rewrite: (path) => path,
         },
       },
     },
