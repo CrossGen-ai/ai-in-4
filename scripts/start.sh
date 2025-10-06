@@ -90,7 +90,7 @@ fi
 # Start frontend
 echo -e "${GREEN}Starting frontend server...${NC}"
 cd "$PROJECT_ROOT/app/client"
-npm run dev &
+yarn dev &
 FRONTEND_PID=$!
 
 # Wait for frontend to start

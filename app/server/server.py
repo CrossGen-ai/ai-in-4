@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import uvicorn
-from main import app
 from core.config import settings
 
 if __name__ == "__main__":

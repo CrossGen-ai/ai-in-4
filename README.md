@@ -8,7 +8,7 @@ A production-ready full-stack template with React + TypeScript + Tailwind v4 + S
 - 🚀 **Backend**: FastAPI + Python 3.10+ + uvicorn
 - 🧪 **Testing**: Vitest (frontend) + Pytest (backend)
 - 🔧 **Dev Tools**: ESLint, Ruff, Hot Reload
-- 📦 **Package Management**: npm (frontend) + uv (backend)
+- 📦 **Package Management**: Yarn v4 (frontend) + uv (backend)
 - 🎯 **ADW Compatible**: Works with AI Developer Workflow automation (triggered through hooks or uv in the terminal)
 - 🌍 **Environment-Based Config**: All ports and settings via .env files
 
@@ -35,7 +35,7 @@ A production-ready full-stack template with React + TypeScript + Tailwind v4 + S
 - Python 3.10+
 - Node.js 18+
 - uv (Python package manager): `curl -LsSf https://astral.sh/uv/install.sh | sh`
-- npm or your preferred package manager
+- Yarn v4 (install via: `corepack enable && corepack prepare yarn@stable --activate`)
 
 ## Quick Start
 
@@ -48,7 +48,7 @@ uv sync --all-extras
 
 # Frontend
 cd app/client
-npm install
+yarn install
 ```
 
 ### 2. Environment Configuration
@@ -90,7 +90,7 @@ uv run python server.py
 
 # Terminal 2: Frontend
 cd app/client
-npm run dev
+yarn dev
 ```
 
 ### 4. Verify Setup
@@ -145,24 +145,24 @@ uv add <package>             # Add dependency
 ### Frontend Commands
 ```bash
 cd app/client
-npm run dev                  # Start dev server
-npm run build                # Build for production
-npm run type-check           # TypeScript type checking
-npm test                     # Run tests
-npm run lint                 # Lint code
+yarn dev                     # Start dev server
+yarn build                   # Build for production
+yarn type-check              # TypeScript type checking
+yarn test                    # Run tests
+yarn lint                    # Lint code
 ```
 
 ### Running Tests
 
 ```bash
 # Frontend tests
-cd app/client && npm test
+cd app/client && yarn test
 
 # Backend tests
 cd app/server && uv run pytest -v
 
 # Type checking
-cd app/client && npm run type-check
+cd app/client && yarn type-check
 ```
 
 ## Adding Features
@@ -275,7 +275,7 @@ ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
 cd app/server && uv sync --all-extras
 
 # Frontend
-cd app/client && rm -rf node_modules && npm install
+cd app/client && rm -rf node_modules && yarn install
 ```
 
 ### Tests Failing
@@ -283,11 +283,11 @@ cd app/client && rm -rf node_modules && npm install
 ```bash
 # Ensure dependencies are installed
 cd app/server && uv sync --all-extras
-cd app/client && npm install
+cd app/client && yarn install
 
 # Run tests with verbose output
 cd app/server && uv run pytest -v
-cd app/client && npm test
+cd app/client && yarn test
 ```
 
 ## Production Deployment
@@ -296,7 +296,7 @@ This template is development-ready. For production:
 
 1. Update CORS settings in `app/server/.env`
 2. Set `SERVER_RELOAD=false` for production
-3. Build frontend: `cd app/client && npm run build`
+3. Build frontend: `cd app/client && yarn build`
 4. Serve frontend build with nginx or similar
 5. Run backend with production ASGI server (uvicorn with workers)
 6. Use environment variables for all secrets

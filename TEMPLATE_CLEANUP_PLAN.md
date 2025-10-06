@@ -76,7 +76,7 @@ A production-ready full-stack template with React + TypeScript + Tailwind v4 + S
 - Python 3.10+
 - Node.js 18+
 - uv (Python package manager): `curl -LsSf https://astral.sh/uv/install.sh | sh`
-- npm or your preferred package manager
+- Yarn v4 package manager
 
 ## Quick Start
 
@@ -89,7 +89,7 @@ uv sync --all-extras
 
 # Frontend
 cd app/client
-npm install
+yarn install
 ```
 
 ### 2. Environment Configuration
@@ -131,7 +131,7 @@ uv run python server.py
 
 # Terminal 2: Frontend
 cd app/client
-npm run dev
+yarn dev
 ```
 
 ### 4. Verify Setup
@@ -186,24 +186,24 @@ uv add <package>             # Add dependency
 ### Frontend Commands
 ```bash
 cd app/client
-npm run dev                  # Start dev server
-npm run build                # Build for production
-npm run type-check           # TypeScript type checking
-npm test                     # Run tests
-npm run lint                 # Lint code
+yarn dev                     # Start dev server
+yarn build                   # Build for production
+yarn type-check              # TypeScript type checking
+yarn test                    # Run tests
+yarn lint                    # Lint code
 ```
 
 ### Running Tests
 
 ```bash
 # Frontend tests
-cd app/client && npm test
+cd app/client && yarn test
 
 # Backend tests
 cd app/server && uv run pytest -v
 
 # Type checking
-cd app/client && npm run type-check
+cd app/client && yarn type-check
 ```
 
 ## Adding Features
@@ -308,7 +308,7 @@ ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
 cd app/server && uv sync --all-extras
 
 # Frontend
-cd app/client && rm -rf node_modules && npm install
+cd app/client && rm -rf node_modules && yarn install
 ```
 
 ### Tests Failing
@@ -316,11 +316,11 @@ cd app/client && rm -rf node_modules && npm install
 ```bash
 # Ensure dependencies are installed
 cd app/server && uv sync --all-extras
-cd app/client && npm install
+cd app/client && yarn install
 
 # Run tests with verbose output
 cd app/server && uv run pytest -v
-cd app/client && npm test
+cd app/client && yarn test
 ```
 
 ## Production Deployment
@@ -329,7 +329,7 @@ This template is development-ready. For production:
 
 1. Update CORS settings in `app/server/.env`
 2. Set `SERVER_RELOAD=false` for production
-3. Build frontend: `cd app/client && npm run build`
+3. Build frontend: `cd app/client && yarn build`
 4. Serve frontend build with nginx or similar
 5. Run backend with production ASGI server (uvicorn with workers)
 6. Use environment variables for all secrets
@@ -548,16 +548,16 @@ git commit -m "chore: Remove committed .env file from repository"
   "scripts": {
     "start": "./scripts/start.sh",
     "stop": "./scripts/stop_apps.sh",
-    "install": "cd app/server && uv sync --all-extras && cd ../client && npm install",
-    "test": "cd app/server && uv run pytest -v && cd ../client && npm test",
-    "lint": "cd app/server && uv run ruff check . && cd ../client && npm run lint"
+    "install": "cd app/server && uv sync --all-extras && cd ../client && yarn install",
+    "test": "cd app/server && uv run pytest -v && cd ../client && yarn test",
+    "lint": "cd app/server && uv run ruff check . && cd ../client && yarn lint"
   },
   "description": "Full-stack template with FastAPI + React TypeScript"
 }
 ```
 
 **Benefits:**
-- Convenient shortcuts: `npm start`, `npm test` from root
+- Convenient shortcuts: `yarn start`, `yarn test` from root
 - Consistent with modern project conventions
 - Easier for new developers
 
@@ -676,7 +676,7 @@ rm app/server/tests/test_sql_injection.py
 
 # 5. Verify tests pass
 cd app/server && uv run pytest -v
-cd ../client && npm test
+cd ../client && yarn test
 
 # 6. Commit changes
 git add .
@@ -726,12 +726,12 @@ After completing all fixes, verify:
 
 ### Functionality Tests
 - [ ] Backend starts without errors: `cd app/server && uv run python server.py`
-- [ ] Frontend starts without errors: `cd app/client && npm run dev`
+- [ ] Frontend starts without errors: `cd app/client && yarn dev`
 - [ ] Health endpoint works: `curl http://localhost:8000/api/health`
 - [ ] Backend tests pass: `cd app/server && uv run pytest -v`
-- [ ] Frontend tests pass: `cd app/client && npm test`
-- [ ] TypeScript compiles: `cd app/client && npm run type-check`
-- [ ] Frontend builds: `cd app/client && npm run build`
+- [ ] Frontend tests pass: `cd app/client && yarn test`
+- [ ] TypeScript compiles: `cd app/client && yarn type-check`
+- [ ] Frontend builds: `cd app/client && yarn build`
 
 ### Template Completeness
 - [ ] README.md describes generic template (not SQL app)
@@ -815,7 +815,7 @@ cp .env.sample .env.local
 
 # 5. Install dependencies
 cd app/server && uv sync --all-extras
-cd ../client && npm install
+cd ../client && yarn install
 
 # 6. Start development
 ./scripts/start.sh

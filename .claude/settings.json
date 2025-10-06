@@ -7,6 +7,7 @@
       "Bash(mv:*)",
       "Bash(grep:*)",
       "Bash(npm:*)",
+      "Bash(yarn:*)",
       "Bash(ls:*)",
       "Bash(cp:*)",
       "Write",

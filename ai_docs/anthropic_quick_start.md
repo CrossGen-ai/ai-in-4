@@ -71,7 +71,7 @@ Click **Get Code** to copy the generated code representing your Workbench sessio
 
 ## Install the SDK
 
-Anthropic provides SDKs for [Python](https://pypi.org/project/anthropic/) (3.7+), [TypeScript](https://www.npmjs.com/package/@anthropic-ai/sdk) (4.5+), and [Java](https://central.sonatype.com/artifact/com.anthropic/anthropic-java/) (8+). We also currently have a [Go](https://pkg.go.dev/github.com/anthropics/anthropic-sdk-go) SDK in beta.
+Anthropic provides SDKs for [Python](https://pypi.org/project/anthropic/) (3.7+), [TypeScript](https://yarnpkg.com/package/@anthropic-ai/sdk) (4.5+), and [Java](https://central.sonatype.com/artifact/com.anthropic/anthropic-java/) (8+). We also currently have a [Go](https://pkg.go.dev/github.com/anthropics/anthropic-sdk-go) SDK in beta.
 
 ### Python
 
@@ -95,7 +95,7 @@ pip install anthropic
 Install the SDK.
 
 ```bash
-npm install @anthropic-ai/sdk
+yarn add @anthropic-ai/sdk
 ```
 
 ### Java

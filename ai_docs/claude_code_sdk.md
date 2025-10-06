@@ -67,7 +67,7 @@ $ claude -p "Build a React component" --output-format stream-json
 
 ### [​](https://docs.anthropic.com/en/docs/claude-code/sdk\#typescript)  TypeScript
 
-The TypeScript SDK is included in the main [`@anthropic-ai/claude-code`](https://www.npmjs.com/package/@anthropic-ai/claude-code) package on NPM:
+The TypeScript SDK is included in the main [`@anthropic-ai/claude-code`](https://yarnpkg.com/package/@anthropic-ai/claude-code) package:
 
 Copy
 
@@ -115,7 +115,7 @@ pip install claude-code-sdk
 
 - Python 3.10+
 - Node.js
-- Claude Code CLI: `npm install -g @anthropic-ai/claude-code`
+- Claude Code CLI: `yarn global add @anthropic-ai/claude-code`
 
 Basic usage:
 
@@ -375,7 +375,7 @@ The SDK leverages all the CLI options available in Claude Code. Here are the key
 | `--max-turns` | Limit agentic turns in non-interactive mode | `claude --max-turns 3` |
 | `--system-prompt` | Override system prompt (only with `--print`) | `claude --system-prompt "Custom instruction"` |
 | `--append-system-prompt` | Append to system prompt (only with `--print`) | `claude --append-system-prompt "Custom instruction"` |
-| `--allowedTools` | Space-separated list of allowed tools, or <br> string of comma-separated list of allowed tools | `claude --allowedTools mcp__slack mcp__filesystem`<br>`claude --allowedTools "Bash(npm install),mcp__filesystem"` |
+| `--allowedTools` | Space-separated list of allowed tools, or <br> string of comma-separated list of allowed tools | `claude --allowedTools mcp__slack mcp__filesystem`<br>`claude --allowedTools "Bash(yarn install),mcp__filesystem"` |
 | `--disallowedTools` | Space-separated list of denied tools, or <br> string of comma-separated list of denied tools | `claude --disallowedTools mcp__splunk mcp__github`<br>`claude --disallowedTools "Bash(git commit),mcp__github"` |
 | `--mcp-config` | Load MCP servers from a JSON file | `claude --mcp-config servers.json` |
 | `--permission-prompt-tool` | MCP tool for handling permission prompts (only with `--print`) | `claude --permission-prompt-tool mcp__auth__prompt` |

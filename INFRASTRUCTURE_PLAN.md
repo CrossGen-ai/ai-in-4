@@ -440,10 +440,10 @@ project-root/
 Command: cd app/server && uv run python -m py_compile server.py main.py core/*.py
 
 # Line 64: TypeScript check
-Command: cd app/client && npm tsc --noEmit
+Command: cd app/client && yarn type-check
 
 # Line 70: Frontend build
-Command: cd app/client && npm run build
+Command: cd app/client && yarn build
 ```
 
 #### Updated (for new stack):
@@ -452,10 +452,10 @@ Command: cd app/client && npm run build
 Command: cd app/server && uv run python -m py_compile server.py main.py core/*.py api/**/*.py services/*.py
 
 # Line 64: TypeScript check
-Command: cd app/client && npm run type-check
+Command: cd app/client && yarn type-check
 
 # Line 70: Frontend build
-Command: cd app/client && npm run build
+Command: cd app/client && yarn build
 ```
 
 **All other 23 commands work without changes!**
@@ -524,10 +524,10 @@ rm -f db/*.db
 cd app/client
 
 # Create React app with Vite
-npm create vite@latest . -- --template react-ts
+yarn create vite . --template react-ts
 
 # Install dependencies
-npm install
+yarn install
 ```
 
 ### Phase 4: Install Tailwind CSS v4
@@ -536,10 +536,10 @@ npm install
 cd app/client
 
 # Install Tailwind v4
-npm install -D tailwindcss@next @tailwindcss/vite@next postcss autoprefixer
+yarn add -D tailwindcss@next @tailwindcss/vite@next postcss autoprefixer
 
 # Initialize Tailwind
-npx tailwindcss init -p
+yarn dlx tailwindcss init -p
 ```
 
 ### Phase 5: Install Shadcn UI
@@ -548,7 +548,7 @@ npx tailwindcss init -p
 cd app/client
 
 # Initialize Shadcn
-npx shadcn@latest init
+yarn dlx shadcn@latest init
 
 # Select options:
 # - Style: Default
@@ -556,12 +556,12 @@ npx shadcn@latest init
 # - CSS variables: Yes
 
 # Install initial components (recommended)
-npx shadcn@latest add button
-npx shadcn@latest add card
-npx shadcn@latest add input
-npx shadcn@latest add label
-npx shadcn@latest add form
-npx shadcn@latest add toast
+yarn dlx shadcn@latest add button
+yarn dlx shadcn@latest add card
+yarn dlx shadcn@latest add input
+yarn dlx shadcn@latest add label
+yarn dlx shadcn@latest add form
+yarn dlx shadcn@latest add toast
 ```
 
 ### Phase 6: Configure Tailwind v4
@@ -1109,7 +1109,7 @@ fi
 # Start frontend
 echo -e "${GREEN}Starting frontend server on port ${CLIENT_PORT}...${NC}"
 cd "$PROJECT_ROOT/app/client"
-npm run dev &
+yarn dev &
 FRONTEND_PID=$!
 
 # Wait for frontend to start
@@ -1162,8 +1162,8 @@ uv run python server.py  # Uses SERVER_PORT from .env
 
 # Terminal 2: Start frontend
 cd app/client
-npm install
-npm run dev  # Uses VITE_PORT from .env.local
+yarn install
+yarn dev  # Uses VITE_PORT from .env.local
 
 # Terminal 3: Test endpoints
 # Note: URLs use ports from environment variables
@@ -1175,10 +1175,10 @@ curl http://localhost:${SERVER_PORT:-8000}/api/health
 
 ```bash
 # Test type checking
-cd app/client && npm run type-check
+cd app/client && yarn type-check
 
 # Test build
-cd app/client && npm run build
+cd app/client && yarn build
 
 # Test backend tests
 cd app/server && uv run pytest
@@ -1209,7 +1209,7 @@ git commit -m "Setup: React + TypeScript + Tailwind v4 + Shadcn + FastAPI infras
 cd app/client
 
 # Install Vitest and testing utilities
-npm install -D vitest @vitest/ui @testing-library/react @testing-library/jest-dom @testing-library/user-event jsdom
+yarn add -D vitest @vitest/ui @testing-library/react @testing-library/jest-dom @testing-library/user-event jsdom
 
 # Update package.json to add test scripts
 ```
@@ -1315,7 +1315,7 @@ def test_health_check():
 ```bash
 # Test frontend
 cd app/client
-npm test
+yarn test
 
 # Test backend
 cd app/server
@@ -1379,7 +1379,7 @@ uv sync --all-extras
 
 # Frontend
 cd ../client
-npm install
+yarn install
 
 cd ../..
 ```
@@ -1729,9 +1729,9 @@ python --version  # Should be 3.10+
 
 | Command | Action |
 |---------|--------|
-| `npm run dev` | Start Vite dev server |
-| `npm run build` | Build for production |
-| `npm run type-check` | TypeScript type checking |
+| `yarn dev` | Start Vite dev server |
+| `yarn build` | Build for production |
+| `yarn type-check` | TypeScript type checking |
 | `uv run python server.py` | Start FastAPI server |
 | `uv run pytest` | Run backend tests |
 | `uv run ruff check .` | Lint backend code |
@@ -1796,7 +1796,7 @@ This infrastructure provides:
 **Last Updated**: 2025-10-04
 **Changes in v2.1**:
 - Added Phase 2.5: Explicit server cleanup to remove SQL-specific code
-- Standardized on npm package manager throughout (removed bun references)
+- Standardized on Yarn v4 package manager throughout
 - Added Phase 21.5: Complete test infrastructure with Vitest and example tests
 - Previous v2.0: Environment-based port configuration for all services
 **Maintained By**: Your Team

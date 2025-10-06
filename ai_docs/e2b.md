@@ -14,7 +14,7 @@ E2B provides secure, isolated cloud sandboxes that can run AI-generated code saf
 - **Multiple languages**: Python, JavaScript, Ruby, C++, and more
 - **Persistent sessions**: Up to 24-hour sandbox sessions
 - **Internet access**: Full internet connectivity with public URLs
-- **Package installation**: Install custom packages via pip, npm, apt-get
+- **Package installation**: Install custom packages via pip, yarn, apt-get
 - **File operations**: Upload, download, and manipulate files
 
 ## Quick Start (Python)
@@ -95,7 +95,7 @@ print("\\nPlot saved to /tmp/plot.png")
 ### 1. Installation
 
 ```bash
-npm install @e2b/code-interpreter dotenv
+yarn add @e2b/code-interpreter dotenv
 ```
 
 ### 2. Environment Setup
@@ -216,7 +216,7 @@ with Sandbox() as sandbox:
     # Install system packages
     sandbox.commands.run('apt-get update && apt-get install -y curl git')
     
-    # Install Node.js packages
+    # Install Node.js packages (Note: E2B sandboxes may still use npm internally)
     sandbox.commands.run('npm install axios')
     
     # Now use the packages
@@ -233,7 +233,7 @@ For pre-installed packages, create a custom template:
 
 1. **Install E2B CLI**:
 ```bash
-npm install -g @e2b/cli
+yarn global add @e2b/cli
 # or
 brew install e2b
 ```
@@ -249,7 +249,7 @@ e2b template init
 FROM e2bdev/code-interpreter:latest
 
 RUN pip install pandas numpy matplotlib seaborn
-RUN npm install axios express
+RUN npm install axios express  # Note: E2B sandboxes use npm internally
 RUN apt-get update && apt-get install -y curl git vim
 ```
 
