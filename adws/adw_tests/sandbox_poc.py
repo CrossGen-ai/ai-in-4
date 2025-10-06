@@ -25,6 +25,10 @@ REQUIREMENTS FOR SUCCESS:
 2. Use -p flag for non-interactive prompt mode
 3. Use --dangerously-skip-permissions to avoid permission prompts
 4. Use full path to claude binary (e.g., ~/.npm-global/bin/claude)
+
+NOTE ON PACKAGE MANAGER:
+This POC uses npm for E2B sandbox compatibility (npm is pre-installed in E2B).
+Outside of E2B sandboxes, this project uses Yarn v4 as the package manager.
 """
 
 import os
@@ -39,7 +43,7 @@ print("=== E2B + Claude Code Integration POC ===\n")
 with Sandbox(envs={"ANTHROPIC_API_KEY": api_key}) as sandbox:
     print(f"✓ Sandbox created: {sandbox.sandbox_id}")
     
-    # Setup npm and install Claude Code
+    # Setup npm and install Claude Code (using npm for E2B compatibility)
     print("\nInstalling Claude Code...")
     sandbox.commands.run("npm config set prefix ~/.npm-global")
     result = sandbox.commands.run("npm install -g @anthropic-ai/claude-code", timeout=60000)
