@@ -1,4 +1,4 @@
-import { User, UserCreate, UserExperience, MagicLinkRequest, AuthResponse, Course } from './types';
+import type { User, UserCreate, UserExperience, MagicLinkRequest, AuthResponse, Course } from './types';
 
 // API client configuration
 // In dev: uses Vite proxy (/api -> http://localhost:SERVER_PORT/api)

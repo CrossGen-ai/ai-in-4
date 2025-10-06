@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api/client';
-import { User } from '../lib/api/types';
+import type { User } from '../lib/api/types';
 
 export function DevLogin() {
   const navigate = useNavigate();

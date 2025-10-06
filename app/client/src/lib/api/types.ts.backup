@@ -1,18 +1,18 @@
 // API type definitions
-export type HealthCheckResponse = {
+export interface HealthCheckResponse {
   status: string;
   timestamp?: string;
 }
 
 // User types
-export type User = {
+export interface User {
   id: number;
   email: string;
   created_at: string;
   last_login?: string;
 }
 
-export type UserExperience = {
+export interface UserExperience {
   id: number;
   user_id: number;
   experience_level: string;
@@ -21,7 +21,7 @@ export type UserExperience = {
   created_at: string;
 }
 
-export type UserCreate = {
+export interface UserCreate {
   email: string;
   experience_level: string;
   background?: string;
@@ -29,17 +29,17 @@ export type UserCreate = {
 }
 
 // Auth types
-export type MagicLinkRequest = {
+export interface MagicLinkRequest {
   email: string;
 }
 
-export type AuthResponse = {
+export interface AuthResponse {
   access_token: string;
   user: User;
 }
 
 // Course types
-export type Course = {
+export interface Course {
   id: number;
   title: string;
   description?: string;
