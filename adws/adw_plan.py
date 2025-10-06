@@ -1,6 +1,6 @@
 #!/usr/bin/env -S uv run
 # /// script
-# dependencies = ["python-dotenv", "pydantic"]
+# dependencies = ["python-dotenv", "pydantic", "rich"]
 # ///
 
 """
@@ -44,6 +44,14 @@ from adw_modules.workflow_ops import (
 )
 from adw_modules.utils import setup_logger
 from adw_modules.data_types import GitHubIssue, IssueClassSlashCommand
+
+# Rich console logging
+from adw_modules.rich_logging import (
+    ADWLogger,
+    log_workflow_start,
+    log_workflow_complete,
+    log_error,
+)
 
 
 def check_env_vars(logger: Optional[logging.Logger] = None) -> None:
@@ -93,6 +101,9 @@ def main():
 
     # Set up logger with ADW ID
     logger = setup_logger(adw_id, "adw_plan")
+
+    # Rich console: Workflow start
+    log_workflow_start("adw_plan", adw_id, int(issue_number))
     logger.info(f"ADW Plan starting - ID: {adw_id}, Issue: {issue_number}")
 
     # Validate environment
@@ -103,6 +114,7 @@ def main():
         github_repo_url = get_repo_url()
         repo_path = extract_repo_path(github_repo_url)
     except ValueError as e:
+        log_error("Error getting repository URL", e)
         logger.error(f"Error getting repository URL: {e}")
         sys.exit(1)
 
@@ -119,10 +131,14 @@ def main():
         f"{adw_id}_ops: 🔍 Using state\n```json\n{json.dumps(state.data, indent=2)}\n```",
     )
 
+    # Rich console: Issue classification section
+    ADWLogger.separator("Issue Classification")
+
     # Classify the issue
     issue_command, error = classify_issue(issue, adw_id, logger)
 
     if error:
+        log_error("Error classifying issue", Exception(error))
         logger.error(f"Error classifying issue: {error}")
         make_issue_comment(
             issue_number,
@@ -132,16 +148,21 @@ def main():
 
     state.update(issue_class=issue_command)
     state.save("adw_plan")
+    ADWLogger.state_update(adw_id, "issue_class", issue_command)
     logger.info(f"Issue classified as: {issue_command}")
     make_issue_comment(
         issue_number,
         format_issue_message(adw_id, "ops", f"✅ Issue classified as: {issue_command}"),
     )
 
+    # Rich console: Branch generation section
+    ADWLogger.separator("Branch Generation")
+
     # Generate branch name
     branch_name, error = generate_branch_name(issue, issue_command, adw_id, logger)
 
     if error:
+        log_error("Error generating branch name", Exception(error))
         logger.error(f"Error generating branch name: {error}")
         make_issue_comment(
             issue_number,
@@ -155,6 +176,7 @@ def main():
     success, error = create_branch(branch_name)
 
     if not success:
+        log_error("Error creating branch", Exception(error))
         logger.error(f"Error creating branch: {error}")
         make_issue_comment(
             issue_number,
@@ -164,11 +186,16 @@ def main():
 
     state.update(branch_name=branch_name)
     state.save("adw_plan")
+    ADWLogger.git_operation("Branch Created", branch_name)
+    ADWLogger.state_update(adw_id, "branch_name", branch_name)
     logger.info(f"Working on branch: {branch_name}")
     make_issue_comment(
         issue_number,
         format_issue_message(adw_id, "ops", f"✅ Working on branch: {branch_name}"),
     )
+
+    # Rich console: Plan generation section
+    ADWLogger.separator("Plan Generation")
 
     # Build the implementation plan
     logger.info("Building implementation plan")
@@ -180,6 +207,7 @@ def main():
     plan_response = build_plan(issue, issue_command, adw_id, logger)
 
     if not plan_response.success:
+        log_error("Error building plan", Exception(plan_response.output))
         logger.error(f"Error building plan: {plan_response.output}")
         make_issue_comment(
             issue_number,
@@ -202,15 +230,17 @@ def main():
     # Validate the path exists
     if not plan_file_path:
         error = "No plan file path returned from planning agent"
+        log_error(error, Exception(error))
         logger.error(error)
         make_issue_comment(
             issue_number,
             format_issue_message(adw_id, "ops", f"❌ {error}"),
         )
         sys.exit(1)
-    
+
     if not os.path.exists(plan_file_path):
         error = f"Plan file does not exist: {plan_file_path}"
+        log_error(error, Exception(error))
         logger.error(error)
         make_issue_comment(
             issue_number,
@@ -220,11 +250,16 @@ def main():
 
     state.update(plan_file=plan_file_path)
     state.save("adw_plan")
+    ADWLogger.tool_call("Write", file_path=plan_file_path)
+    ADWLogger.state_update(adw_id, "plan_file", plan_file_path)
     logger.info(f"Plan file created: {plan_file_path}")
     make_issue_comment(
         issue_number,
         format_issue_message(adw_id, "ops", f"✅ Plan file created: {plan_file_path}"),
     )
+
+    # Rich console: Commit section
+    ADWLogger.separator("Plan Commit")
 
     # Create commit message
     logger.info("Creating plan commit")
@@ -233,6 +268,7 @@ def main():
     )
 
     if error:
+        log_error("Error creating commit message", Exception(error))
         logger.error(f"Error creating commit message: {error}")
         make_issue_comment(
             issue_number,
@@ -246,6 +282,7 @@ def main():
     success, error = commit_changes(commit_msg)
 
     if not success:
+        log_error("Error committing plan", Exception(error))
         logger.error(f"Error committing plan: {error}")
         make_issue_comment(
             issue_number,
@@ -255,6 +292,7 @@ def main():
         )
         sys.exit(1)
 
+    ADWLogger.git_operation("Committed", commit_msg[:60] + "..." if len(commit_msg) > 60 else commit_msg)
     logger.info(f"Committed plan: {commit_msg}")
     make_issue_comment(
         issue_number, format_issue_message(adw_id, AGENT_PLANNER, "✅ Plan committed")
@@ -270,7 +308,10 @@ def main():
 
     # Save final state
     state.save("adw_plan")
-    
+
+    # Rich console: Workflow complete
+    log_workflow_complete("adw_plan", adw_id, success=True)
+
     # Post final state summary to issue
     make_issue_comment(
         issue_number,
