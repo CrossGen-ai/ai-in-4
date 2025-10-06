@@ -1,6 +1,6 @@
 #!/usr/bin/env -S uv run
 # /// script
-# dependencies = ["python-dotenv", "pydantic", "boto3>=1.26.0"]
+# dependencies = ["python-dotenv", "pydantic", "boto3>=1.26.0", "rich"]
 # ///
 
 """
@@ -56,6 +56,14 @@ from adw_modules.data_types import (
 )
 from adw_modules.agent import execute_template
 from adw_modules.r2_uploader import R2Uploader
+
+# Rich console logging
+from adw_modules.rich_logging import (
+    ADWLogger,
+    log_workflow_start,
+    log_workflow_complete,
+    log_error,
+)
 
 # Agent name constants
 AGENT_REVIEWER = "reviewer"
@@ -449,6 +457,9 @@ def main():
 
     # Set up logger with ADW ID from command line
     logger = setup_logger(adw_id, "adw_review")
+
+    # Rich console: Workflow start
+    log_workflow_start("adw_review", adw_id, int(issue_number))
     logger.info(f"ADW Review starting - ID: {adw_id}, Issue: {issue_number}")
 
     # Validate environment
@@ -459,6 +470,7 @@ def main():
         github_repo_url = get_repo_url()
         repo_path = extract_repo_path(github_repo_url)
     except ValueError as e:
+        log_error("Error getting repository URL", e)
         logger.error(f"Error getting repository URL: {e}")
         sys.exit(1)
 
@@ -471,12 +483,16 @@ def main():
         )
         sys.exit(1)
 
+    # Rich console: Branch checkout section
+    ADWLogger.separator("Branch Checkout")
+
     # Checkout the branch from state
     branch_name = state.get("branch_name")
     result = subprocess.run(
         ["git", "checkout", branch_name], capture_output=True, text=True
     )
     if result.returncode != 0:
+        log_error("Failed to checkout branch", Exception(result.stderr))
         logger.error(f"Failed to checkout branch {branch_name}: {result.stderr}")
         make_issue_comment(
             issue_number,
@@ -485,6 +501,7 @@ def main():
             ),
         )
         sys.exit(1)
+    ADWLogger.git_operation("Checked Out", branch_name)
     logger.info(f"Checked out branch: {branch_name}")
 
     make_issue_comment(
@@ -517,6 +534,10 @@ def main():
     while attempt < max_attempts:
         attempt += 1
         logger.info(f"\n=== Review Attempt {attempt}/{max_attempts} ===")
+
+        # Rich console: Review execution section
+        if attempt == 1:
+            ADWLogger.separator("Review Execution")
 
         # Run the review
         logger.info("Running review against specification")
@@ -602,6 +623,9 @@ def main():
                     ),
                 )
 
+                # Rich console: Resolution commit section
+                ADWLogger.separator("Resolution Commit")
+
                 # Commit the resolution changes
                 logger.info("Committing resolution changes")
                 review_issue = fetch_issue(issue_number, repo_path)
@@ -615,6 +639,7 @@ def main():
                 if not error:
                     success, error = commit_changes(commit_msg)
                     if success:
+                        ADWLogger.git_operation("Committed", commit_msg[:60] + "..." if len(commit_msg) > 60 else commit_msg)
                         logger.info(f"Committed resolution: {commit_msg}")
                         make_issue_comment(
                             issue_number,
@@ -625,6 +650,7 @@ def main():
                             ),
                         )
                     else:
+                        log_error("Error committing resolution", Exception(error))
                         logger.error(f"Error committing resolution: {error}")
                         make_issue_comment(
                             issue_number,
@@ -678,6 +704,9 @@ def main():
                 ),
             )
 
+    # Rich console: Final review commit section
+    ADWLogger.separator("Review Commit")
+
     logger.info("Fetching issue data for commit message")
     review_issue = fetch_issue(issue_number, repo_path)
 
@@ -691,6 +720,7 @@ def main():
     )
 
     if error:
+        log_error("Error creating commit message", Exception(error))
         logger.error(f"Error creating commit message: {error}")
         make_issue_comment(
             issue_number,
@@ -704,6 +734,7 @@ def main():
     success, error = commit_changes(commit_msg)
 
     if not success:
+        log_error("Error committing review", Exception(error))
         logger.error(f"Error committing review: {error}")
         make_issue_comment(
             issue_number,
@@ -713,6 +744,7 @@ def main():
         )
         sys.exit(1)
 
+    ADWLogger.git_operation("Committed", commit_msg[:60] + "..." if len(commit_msg) > 60 else commit_msg)
     logger.info(f"Committed review: {commit_msg}")
     make_issue_comment(
         issue_number,
@@ -729,6 +761,9 @@ def main():
 
     # Save final state
     state.save("adw_review")
+
+    # Rich console: Workflow complete
+    log_workflow_complete("adw_review", adw_id, success=True)
 
     # Output state for chaining
     state.to_stdout()

@@ -1,6 +1,6 @@
 #!/usr/bin/env -S uv run
 # /// script
-# dependencies = ["python-dotenv", "pydantic"]
+# dependencies = ["python-dotenv", "pydantic", "rich"]
 # ///
 
 """
@@ -35,6 +35,14 @@ from adw_modules.workflow_ops import (
 )
 from adw_modules.utils import setup_logger
 from adw_modules.data_types import GitHubIssue
+
+# Rich console logging
+from adw_modules.rich_logging import (
+    ADWLogger,
+    log_workflow_start,
+    log_workflow_complete,
+    log_error,
+)
 
 
 def check_env_vars(logger: Optional[logging.Logger] = None) -> None:
@@ -98,6 +106,9 @@ def main():
     
     # Set up logger with ADW ID from command line
     logger = setup_logger(adw_id, "adw_build")
+
+    # Rich console: Workflow start
+    log_workflow_start("adw_build", adw_id, int(issue_number))
     logger.info(f"ADW Build starting - ID: {adw_id}, Issue: {issue_number}")
     
     # Validate environment
@@ -108,6 +119,7 @@ def main():
         github_repo_url = get_repo_url()
         repo_path = extract_repo_path(github_repo_url)
     except ValueError as e:
+        log_error("Error getting repository URL", e)
         logger.error(f"Error getting repository URL: {e}")
         sys.exit(1)
     
@@ -130,16 +142,21 @@ def main():
         )
         sys.exit(1)
     
+    # Rich console: Branch checkout section
+    ADWLogger.separator("Branch Checkout")
+
     # Checkout the branch from state
     branch_name = state.get("branch_name")
     result = subprocess.run(["git", "checkout", branch_name], capture_output=True, text=True)
     if result.returncode != 0:
+        log_error("Failed to checkout branch", Exception(result.stderr))
         logger.error(f"Failed to checkout branch {branch_name}: {result.stderr}")
         make_issue_comment(
             issue_number,
             format_issue_message(adw_id, "ops", f"❌ Failed to checkout branch {branch_name}")
         )
         sys.exit(1)
+    ADWLogger.git_operation("Checked Out", branch_name)
     logger.info(f"Checked out branch: {branch_name}")
     
     # Get the plan file from state
@@ -147,10 +164,13 @@ def main():
     logger.info(f"Using plan file: {plan_file}")
     
     make_issue_comment(
-        issue_number, 
+        issue_number,
         format_issue_message(adw_id, "ops", "✅ Starting implementation phase")
     )
-    
+
+    # Rich console: Implementation section
+    ADWLogger.separator("Solution Implementation")
+
     # Implement the plan
     logger.info("Implementing solution")
     make_issue_comment(
@@ -159,8 +179,9 @@ def main():
     )
     
     implement_response = implement_plan(plan_file, adw_id, logger)
-    
+
     if not implement_response.success:
+        log_error("Error implementing solution", Exception(implement_response.output))
         logger.error(f"Error implementing solution: {implement_response.output}")
         make_issue_comment(
             issue_number,
@@ -185,6 +206,7 @@ def main():
         from adw_modules.workflow_ops import classify_issue
         issue_command, error = classify_issue(issue, adw_id, logger)
         if error:
+            log_error("Error classifying issue", Exception(error))
             logger.error(f"Error classifying issue: {error}")
             # Default to feature if classification fails
             issue_command = "/feature"
@@ -193,29 +215,36 @@ def main():
             # Save the classification for future use
             state.update(issue_class=issue_command)
             state.save("adw_build")
-    
+
+    # Rich console: Commit section
+    ADWLogger.separator("Implementation Commit")
+
     # Create commit message
     logger.info("Creating implementation commit")
     commit_msg, error = create_commit(AGENT_IMPLEMENTOR, issue, issue_command, adw_id, logger)
-    
+
     if error:
+        log_error("Error creating commit message", Exception(error))
         logger.error(f"Error creating commit message: {error}")
         make_issue_comment(
             issue_number,
             format_issue_message(adw_id, AGENT_IMPLEMENTOR, f"❌ Error creating commit message: {error}")
         )
         sys.exit(1)
-    
+
     # Commit the implementation
     success, error = commit_changes(commit_msg)
-    
+
     if not success:
+        log_error("Error committing implementation", Exception(error))
         logger.error(f"Error committing implementation: {error}")
         make_issue_comment(
             issue_number,
             format_issue_message(adw_id, AGENT_IMPLEMENTOR, f"❌ Error committing implementation: {error}")
         )
         sys.exit(1)
+
+    ADWLogger.git_operation("Committed", commit_msg[:60] + "..." if len(commit_msg) > 60 else commit_msg)
     
     # Log commit (don't store in state as it's not a core field)
     
@@ -236,6 +265,9 @@ def main():
     
     # Save final state
     state.save("adw_build")
+
+    # Rich console: Workflow complete
+    log_workflow_complete("adw_build", adw_id, success=True)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 #!/usr/bin/env -S uv run
 # /// script
-# dependencies = ["python-dotenv", "pydantic"]
+# dependencies = ["python-dotenv", "pydantic", "rich"]
 # ///
 
 """
@@ -52,6 +52,14 @@ from adw_modules.workflow_ops import (
     create_commit,
     ensure_adw_id,
     classify_issue,
+)
+
+# Rich console logging
+from adw_modules.rich_logging import (
+    ADWLogger,
+    log_workflow_start,
+    log_workflow_complete,
+    log_error,
 )
 
 # Removed create_or_find_branch - now using state directly
@@ -860,6 +868,9 @@ def main():
 
     # Set up logger with ADW ID
     logger = setup_logger(adw_id, "adw_test")
+
+    # Rich console: Workflow start
+    log_workflow_start("adw_test", adw_id, int(issue_number))
     logger.info(f"ADW Test starting - ID: {adw_id}, Issue: {issue_number}")
 
     # Validate environment (now with logger)
@@ -870,12 +881,16 @@ def main():
         github_repo_url: str = get_repo_url()
         repo_path: str = extract_repo_path(github_repo_url)
     except ValueError as e:
+        log_error("Error getting repository URL", e)
         logger.error(f"Error getting repository URL: {e}")
         sys.exit(1)
 
     # We'll fetch issue details later only if needed
     issue = None
     issue_class = state.get("issue_class")
+
+    # Rich console: Branch handling section
+    ADWLogger.separator("Branch Handling")
 
     # Handle branch - either use existing or create new test branch
     branch_name = state.get("branch_name")
@@ -885,6 +900,7 @@ def main():
             ["git", "checkout", branch_name], capture_output=True, text=True
         )
         if result.returncode != 0:
+            log_error("Failed to checkout branch", Exception(result.stderr))
             logger.error(f"Failed to checkout branch {branch_name}: {result.stderr}")
             make_issue_comment(
                 issue_number,
@@ -893,6 +909,7 @@ def main():
                 ),
             )
             sys.exit(1)
+        ADWLogger.git_operation("Checked Out", branch_name)
         logger.info(f"Checked out existing branch: {branch_name}")
     else:
         # No branch in state - create a test-specific branch
@@ -907,6 +924,7 @@ def main():
 
         success, error = create_branch(branch_name)
         if not success:
+            log_error("Error creating branch", Exception(error))
             logger.error(f"Error creating branch: {error}")
             make_issue_comment(
                 issue_number,
@@ -918,6 +936,8 @@ def main():
 
         state.update(branch_name=branch_name)
         state.save("adw_test")
+        ADWLogger.git_operation("Branch Created", branch_name)
+        ADWLogger.state_update(adw_id, "branch_name", branch_name)
         logger.info(f"Created and checked out new test branch: {branch_name}")
         make_issue_comment(
             issue_number,
@@ -929,6 +949,9 @@ def main():
     make_issue_comment(
         issue_number, format_issue_message(adw_id, "ops", "✅ Starting test suite")
     )
+
+    # Rich console: Test execution section
+    ADWLogger.separator("Unit Test Execution")
 
     # Run tests with automatic resolution and retry
     logger.info("\n=== Running test suite ===")
@@ -978,6 +1001,9 @@ def main():
         e2e_passed_count = 0
         e2e_failed_count = 0
     else:
+        # Rich console: E2E test execution section
+        ADWLogger.separator("E2E Test Execution")
+
         # Run E2E tests since unit tests passed
         logger.info("\n=== Running E2E test suite ===")
         make_issue_comment(
@@ -1008,6 +1034,9 @@ def main():
                 f"Final E2E test results: {e2e_passed_count} passed, {e2e_failed_count} failed"
             )
 
+    # Rich console: Commit section
+    ADWLogger.separator("Test Results Commit")
+
     # Commit the test results (whether tests passed or failed)
     logger.info("\n=== Committing test results ===")
     make_issue_comment(
@@ -1033,6 +1062,7 @@ def main():
     commit_msg, error = create_commit(AGENT_TESTER, issue, issue_class, adw_id, logger)
 
     if error:
+        log_error("Error committing test results", Exception(error))
         logger.error(f"Error committing test results: {error}")
         make_issue_comment(
             issue_number,
@@ -1042,6 +1072,7 @@ def main():
         )
         # Don't exit on commit error, continue to report final status
     else:
+        ADWLogger.git_operation("Committed", commit_msg[:60] + "..." if len(commit_msg) > 60 else commit_msg)
         logger.info(f"Test results committed: {commit_msg}")
 
     # Log comprehensive test results to the issue
@@ -1058,8 +1089,11 @@ def main():
     # Output state for chaining
     state.to_stdout()
 
-    # Exit with appropriate code
+    # Rich console: Workflow complete
     total_failures = failed_count + e2e_failed_count
+    log_workflow_complete("adw_test", adw_id, success=(total_failures == 0))
+
+    # Exit with appropriate code
     if total_failures > 0:
         logger.info(f"Test suite completed with failures for issue #{issue_number}")
         failure_msg = f"❌ Test suite completed with failures:\n"

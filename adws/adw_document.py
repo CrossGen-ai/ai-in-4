@@ -1,6 +1,6 @@
 #!/usr/bin/env -S uv run
 # /// script
-# dependencies = ["python-dotenv", "pydantic"]
+# dependencies = ["python-dotenv", "pydantic", "rich"]
 # ///
 
 """
@@ -36,6 +36,14 @@ from adw_modules.workflow_ops import (
 from adw_modules.utils import setup_logger
 from adw_modules.data_types import GitHubIssue, AgentTemplateRequest, DocumentationResult, IssueClassSlashCommand
 from adw_modules.agent import execute_template
+
+# Rich console logging
+from adw_modules.rich_logging import (
+    ADWLogger,
+    log_workflow_start,
+    log_workflow_complete,
+    log_error,
+)
 
 # Agent name constant
 AGENT_DOCUMENTER = "documenter"
@@ -238,6 +246,9 @@ def main():
     
     # Set up logger with ADW ID from command line
     logger = setup_logger(adw_id, "adw_document")
+
+    # Rich console: Workflow start
+    log_workflow_start("adw_document", adw_id, int(issue_number))
     logger.info(f"ADW Document starting - ID: {adw_id}, Issue: {issue_number}")
     
     # Check environment
@@ -253,16 +264,21 @@ def main():
         )
         sys.exit(1)
     
+    # Rich console: Branch checkout section
+    ADWLogger.separator("Branch Checkout")
+
     # Checkout the branch from state
     branch_name = state.get("branch_name")
     result = subprocess.run(["git", "checkout", branch_name], capture_output=True, text=True)
     if result.returncode != 0:
+        log_error("Failed to checkout branch", Exception(result.stderr))
         logger.error(f"Failed to checkout branch {branch_name}: {result.stderr}")
         make_issue_comment(
             issue_number,
             format_issue_message(adw_id, "ops", f"❌ Failed to checkout branch {branch_name}")
         )
         sys.exit(1)
+    ADWLogger.git_operation("Checked Out", branch_name)
     logger.info(f"Checked out branch: {branch_name}")
     
     # Post initial comment
@@ -275,7 +291,10 @@ def main():
         make_issue_comment(issue_number, initial_comment)
     except Exception as e:
         logger.warning(f"Failed to post initial comment: {e}")
-    
+
+    # Rich console: Documentation generation section
+    ADWLogger.separator("Documentation Generation")
+
     # Generate documentation
     result = generate_documentation(issue_number, adw_id, logger, state)
     
@@ -287,6 +306,7 @@ def main():
                 github_repo_url = get_repo_url()
                 repo_path = extract_repo_path(github_repo_url)
             except ValueError as e:
+                log_error("Error getting repository URL", e)
                 logger.error(f"Error getting repository URL: {e}")
                 make_issue_comment(
                     issue_number,
@@ -308,29 +328,36 @@ def main():
             
             # Get issue classification from state
             issue_command = state.get("issue_class", "/chore")
-            
+
+            # Rich console: Commit section
+            ADWLogger.separator("Documentation Commit")
+
             # Create commit message
             logger.info("Creating documentation commit")
             commit_msg, error = create_commit(AGENT_DOCUMENTER, issue, issue_command, adw_id, logger)
-            
+
             if error:
+                log_error("Error creating commit message", Exception(error))
                 logger.error(f"Error creating commit message: {error}")
                 make_issue_comment(
                     issue_number,
                     format_issue_message(adw_id, "ops", f"❌ Error creating commit: {error}")
                 )
                 sys.exit(1)
-            
+
             # Commit the changes
             logger.info(f"Committing documentation: {commit_msg.split(chr(10))[0]}")
             success, error = commit_changes(commit_msg)
             if not success:
+                log_error("Failed to commit changes", Exception(error))
                 logger.error(f"Failed to commit changes: {error}")
                 make_issue_comment(
                     issue_number,
                     format_issue_message(adw_id, "ops", f"❌ Failed to commit documentation: {error}")
                 )
                 sys.exit(1)
+
+            ADWLogger.git_operation("Committed", commit_msg[:60] + "..." if len(commit_msg) > 60 else commit_msg)
             
             # Finalize git operations (push and PR)
             finalize_git_operations(state, logger)
@@ -356,8 +383,12 @@ def main():
         if result.documentation_path:
             state.update(documentation_path=result.documentation_path)
         state.save("adw_document")
+
+        # Rich console: Workflow complete
+        log_workflow_complete("adw_document", adw_id, success=True)
+
         state.to_stdout()
-        
+
         sys.exit(0)
     else:
         # Post failure comment

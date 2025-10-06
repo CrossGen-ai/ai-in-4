@@ -1,6 +1,6 @@
 #!/usr/bin/env -S uv run
 # /// script
-# dependencies = ["python-dotenv", "pydantic"]
+# dependencies = ["python-dotenv", "pydantic", "rich"]
 # ///
 
 """
@@ -44,6 +44,14 @@ from adw_modules.workflow_ops import format_issue_message
 from adw_modules.utils import setup_logger, check_env_vars
 from adw_modules.worktree_ops import validate_worktree
 from adw_modules.data_types import ADWStateData
+
+# Rich console logging
+from adw_modules.rich_logging import (
+    ADWLogger,
+    log_workflow_start,
+    log_workflow_complete,
+    log_error,
+)
 
 # Agent name constant
 AGENT_SHIPPER = "shipper"
@@ -214,6 +222,9 @@ def main():
     
     # Set up logger with ADW ID
     logger = setup_logger(adw_id, "adw_ship_iso")
+
+    # Rich console: Workflow start
+    log_workflow_start("adw_ship_iso", adw_id, int(issue_number))
     logger.info(f"ADW Ship Iso starting - ID: {adw_id}, Issue: {issue_number}")
     
     # Validate environment
@@ -304,6 +315,9 @@ def main():
     # Save final state
     state.save("adw_ship_iso")
     
+
+    # Rich console: Workflow complete
+    log_workflow_complete("adw_ship_iso", adw_id, success=True)
     # Post final state summary
     make_issue_comment(
         issue_number,

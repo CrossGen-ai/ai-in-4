@@ -1,6 +1,6 @@
 #!/usr/bin/env -S uv run
 # /// script
-# dependencies = ["python-dotenv", "pydantic"]
+# dependencies = ["python-dotenv", "pydantic", "rich"]
 # ///
 
 """
@@ -31,6 +31,14 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from adw_modules.workflow_ops import ensure_adw_id
 from adw_modules.github import make_issue_comment
+
+# Rich console logging
+from adw_modules.rich_logging import (
+    ADWLogger,
+    log_workflow_start,
+    log_workflow_complete,
+    log_error,
+)
 
 
 def main():

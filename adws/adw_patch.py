@@ -1,6 +1,6 @@
 #!/usr/bin/env -S uv run
 # /// script
-# dependencies = ["python-dotenv", "pydantic"]
+# dependencies = ["python-dotenv", "pydantic", "rich"]
 # ///
 
 """
@@ -55,6 +55,14 @@ from adw_modules.data_types import (
     AgentPromptResponse,
 )
 from adw_modules.agent import execute_template
+
+# Rich console logging
+from adw_modules.rich_logging import (
+    ADWLogger,
+    log_workflow_start,
+    log_workflow_complete,
+    log_error,
+)
 
 # Agent name constants
 AGENT_PATCH_PLANNER = "patch_planner"
@@ -170,6 +178,9 @@ def main():
 
     # Set up logger with ADW ID
     logger = setup_logger(adw_id, "adw_patch")
+
+    # Rich console: Workflow start
+    log_workflow_start("adw_patch", adw_id, int(issue_number))
     logger.info(f"ADW Patch starting - ID: {adw_id}, Issue: {issue_number}")
 
     # Validate environment
@@ -180,6 +191,7 @@ def main():
         github_repo_url = get_repo_url()
         repo_path = extract_repo_path(github_repo_url)
     except ValueError as e:
+        log_error("Error getting repository URL", e)
         logger.error(f"Error getting repository URL: {e}")
         sys.exit(1)
 
@@ -196,10 +208,14 @@ def main():
         f"{adw_id}_ops: 🔍 Using state\n```json\n{json.dumps(state.data, indent=2)}\n```",
     )
 
+    # Rich console: Branch creation section
+    ADWLogger.separator("Branch Creation")
+
     # Create or find branch for the issue
     branch_name, error = create_or_find_branch(issue_number, issue, state, logger)
 
     if error:
+        log_error("Error with branch", Exception(error))
         logger.error(f"Error with branch: {error}")
         make_issue_comment(
             issue_number,
@@ -209,11 +225,16 @@ def main():
 
     # State is already updated by create_or_find_branch
     state.save("adw_patch")
+    ADWLogger.git_operation("Branch Ready", branch_name)
+    ADWLogger.state_update(adw_id, "branch_name", branch_name)
     logger.info(f"Working on branch: {branch_name}")
     make_issue_comment(
         issue_number,
         format_issue_message(adw_id, "ops", f"✅ Working on branch: {branch_name}"),
     )
+
+    # Rich console: Patch planning section
+    ADWLogger.separator("Patch Planning")
 
     # Get patch content from issue or comments containing 'adw_patch'
     logger.info("Checking for 'adw_patch' keyword")
@@ -230,6 +251,7 @@ def main():
     )
 
     if not patch_file:
+        log_error("Failed to create patch plan", Exception("Patch creation failed"))
         logger.error("Failed to create patch plan")
         make_issue_comment(
             issue_number,
@@ -241,6 +263,7 @@ def main():
 
     state.update(patch_file=patch_file)
     state.save("adw_patch")
+    ADWLogger.state_update(adw_id, "patch_file", patch_file)
     logger.info(f"Patch plan created: {patch_file}")
     make_issue_comment(
         issue_number,
@@ -250,6 +273,7 @@ def main():
     )
 
     if not implement_response.success:
+        log_error("Error implementing patch", Exception(implement_response.output))
         logger.error(f"Error implementing patch: {implement_response.output}")
         make_issue_comment(
             issue_number,
@@ -267,6 +291,9 @@ def main():
         format_issue_message(adw_id, AGENT_PATCH_IMPLEMENTOR, "✅ Patch implemented"),
     )
 
+    # Rich console: Commit section
+    ADWLogger.separator("Patch Commit")
+
     # Create commit message
     logger.info("Creating patch commit")
 
@@ -276,6 +303,7 @@ def main():
     )
 
     if error:
+        log_error("Error creating commit message", Exception(error))
         logger.error(f"Error creating commit message: {error}")
         make_issue_comment(
             issue_number,
@@ -289,6 +317,7 @@ def main():
     success, error = commit_changes(commit_msg)
 
     if not success:
+        log_error("Error committing patch", Exception(error))
         logger.error(f"Error committing patch: {error}")
         make_issue_comment(
             issue_number,
@@ -298,6 +327,7 @@ def main():
         )
         sys.exit(1)
 
+    ADWLogger.git_operation("Committed", commit_msg[:60] + "..." if len(commit_msg) > 60 else commit_msg)
     logger.info(f"Committed patch: {commit_msg}")
     make_issue_comment(
         issue_number,
@@ -314,6 +344,9 @@ def main():
 
     # Save final state
     state.save("adw_patch")
+
+    # Rich console: Workflow complete
+    log_workflow_complete("adw_patch", adw_id, success=True)
 
     # Post final state summary to issue
     make_issue_comment(

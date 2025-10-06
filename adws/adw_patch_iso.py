@@ -1,6 +1,6 @@
 #!/usr/bin/env -S uv run
 # /// script
-# dependencies = ["python-dotenv", "pydantic"]
+# dependencies = ["python-dotenv", "pydantic", "rich"]
 # ///
 
 """
@@ -70,6 +70,14 @@ from adw_modules.data_types import (
     AgentPromptResponse,
 )
 from adw_modules.agent import execute_template
+
+# Rich console logging
+from adw_modules.rich_logging import (
+    ADWLogger,
+    log_workflow_start,
+    log_workflow_complete,
+    log_error,
+)
 
 # Agent name constants
 AGENT_PATCH_PLANNER = "patch_planner"
@@ -167,6 +175,9 @@ def main():
 
     # Set up logger with ADW ID
     logger = setup_logger(adw_id, "adw_patch_iso")
+
+    # Rich console: Workflow start
+    log_workflow_start("adw_patch_iso", adw_id, int(issue_number))
     logger.info(f"ADW Patch Isolated starting - ID: {adw_id}, Issue: {issue_number}")
 
     # Validate environment
@@ -421,6 +432,9 @@ def main():
     # Save final state
     state.save("adw_patch_iso")
 
+
+    # Rich console: Workflow complete
+    log_workflow_complete("adw_patch_iso", adw_id, success=True)
     # Post final state summary to issue
     make_issue_comment(
         issue_number,

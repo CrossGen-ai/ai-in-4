@@ -1,6 +1,6 @@
 #!/usr/bin/env -S uv run
 # /// script
-# dependencies = ["python-dotenv", "pydantic", "boto3>=1.26.0"]
+# dependencies = ["python-dotenv", "pydantic", "boto3>=1.26.0", "rich"]
 # ///
 
 """
@@ -56,6 +56,14 @@ from adw_modules.data_types import (
 from adw_modules.agent import execute_template
 from adw_modules.r2_uploader import R2Uploader
 from adw_modules.worktree_ops import validate_worktree
+
+# Rich console logging
+from adw_modules.rich_logging import (
+    ADWLogger,
+    log_workflow_start,
+    log_workflow_complete,
+    log_error,
+)
 
 # Agent name constants
 AGENT_REVIEWER = "reviewer"
@@ -357,6 +365,9 @@ def main():
     
     # Set up logger with ADW ID from command line
     logger = setup_logger(adw_id, "adw_review_iso")
+
+    # Rich console: Workflow start
+    log_workflow_start("adw_review_iso", adw_id, int(issue_number))
     logger.info(f"ADW Review Iso starting - ID: {adw_id}, Issue: {issue_number}, Skip Resolution: {skip_resolution}")
     
     # Validate environment
@@ -524,6 +535,9 @@ def main():
     # Save final state
     state.save("adw_review_iso")
     
+
+    # Rich console: Workflow complete
+    log_workflow_complete("adw_review_iso", adw_id, success=True)
     # Post final state summary to issue
     make_issue_comment(
         issue_number,
