@@ -1,6 +1,9 @@
 import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 export function Landing() {
+  const { user, isAuthenticated, logout } = useAuth();
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800">
       {/* Hero Section */}
@@ -17,18 +20,40 @@ export function Landing() {
             Join our community of learners and master AI fundamentals in just 4 weeks.
           </p>
           <div className="flex gap-4 justify-center">
-            <Link
-              to="/register"
-              className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors text-lg"
-            >
-              Get Started
-            </Link>
-            <Link
-              to="/login"
-              className="px-8 py-4 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-lg transition-colors text-lg"
-            >
-              Sign In
-            </Link>
+            {isAuthenticated ? (
+              <>
+                <div className="text-white text-lg mb-4">
+                  Welcome, {user?.email}!
+                </div>
+                <Link
+                  to="/courses"
+                  className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors text-lg"
+                >
+                  View Courses
+                </Link>
+                <button
+                  onClick={logout}
+                  className="px-8 py-4 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-lg transition-colors text-lg"
+                >
+                  Sign Out
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/register"
+                  className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors text-lg"
+                >
+                  Get Started
+                </Link>
+                <Link
+                  to="/login"
+                  className="px-8 py-4 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-lg transition-colors text-lg"
+                >
+                  Sign In
+                </Link>
+              </>
+            )}
           </div>
         </div>
 

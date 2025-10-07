@@ -28,11 +28,14 @@ export function DevLogin() {
 
   const handleSelectUser = async (user: User) => {
     try {
-      // For dev mode, generate a magic link for this user
-      await api.auth.requestMagicLink(user.email);
-      // In a real implementation, we'd need to get the token from the backend response
-      // For now, we'll just show a message
-      alert('In dev mode, check the server logs for the magic link, then use it to log in');
+      // Use dev login endpoint for instant authentication
+      const response = await api.auth.devLogin(user.email);
+
+      // Login with the token (login function handles storing and fetching user)
+      await login(response.access_token);
+
+      // Redirect to home
+      navigate('/');
     } catch (err: any) {
       setError(err.message || 'Failed to login');
     }

@@ -106,8 +106,11 @@ async def validate_magic_link(token: str, db: AsyncSession) -> tuple[User | None
 async def validate_session_token(token: str, db: AsyncSession) -> User | None:
     """Validate a session token and return the associated user."""
     try:
+        print(f"[VALIDATE] Received token: {token[:80]}", flush=True)
+        logger.info(f"Validating token (first 50 chars): {token[:50] if len(token) > 50 else token}...")
         # Verify token signature and extract user data
         data = serializer.loads(token, salt="session")
+        print(f"[VALIDATE] Token valid! User ID: {data.get('user_id')}", flush=True)
         user_id = data.get("user_id")
 
         if not user_id:

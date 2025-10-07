@@ -89,6 +89,13 @@ export const api = {
     async getDevUsers() {
       return apiRequest<User[]>('/auth/dev-users');
     },
+
+    async devLogin(email: string) {
+      return apiRequest<AuthResponse>('/auth/dev-login', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      });
+    },
   },
 
   // Users

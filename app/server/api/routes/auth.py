@@ -119,3 +119,41 @@ async def get_dev_users(db: AsyncSession = Depends(get_db)):
     users = result.scalars().all()
 
     return [UserResponse.model_validate(user) for user in users]
+
+
+@router.post("/dev-login", response_model=AuthResponse)
+async def dev_login(
+    request: MagicLinkRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """Instant login for dev mode - bypasses magic link flow."""
+    if not settings.DEV_MODE:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Not available in production"
+        )
+
+    user = await get_user_by_email(request.email, db)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    # Update last login
+    from datetime import datetime, UTC
+    user.last_login = datetime.now(UTC)
+    await db.commit()
+
+    # Generate session token using the same serializer as magic_link service
+    from services.magic_link import serializer
+    session_token = serializer.dumps({"user_id": user.id, "email": user.email}, salt="session")
+
+    print(f"[DEV-LOGIN] User: {user.email}, Token: {session_token[:80]}", flush=True)
+    logger.info(f"Dev login successful for user: {user.email}")
+    logger.info(f"Generated token (first 50 chars): {session_token[:50]}...")
+
+    return AuthResponse(
+        access_token=session_token,
+        user=UserResponse.model_validate(user)
+    )

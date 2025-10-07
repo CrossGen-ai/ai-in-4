@@ -13,6 +13,11 @@ async def get_current_user(
     db: AsyncSession = Depends(get_db)
 ):
     """Get current user from authorization header."""
+    import logging
+    logger = logging.getLogger(__name__)
+
+    logger.info(f"Authorization header received: {authorization[:50] if authorization else 'None'}...")
+
     if not authorization:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -21,6 +26,7 @@ async def get_current_user(
 
     # Extract token from "Bearer <token>"
     token = authorization.replace("Bearer ", "")
+    logger.info(f"Extracted token (first 50 chars): {token[:50]}...")
 
     # Validate session token
     user = await validate_session_token(token, db)
