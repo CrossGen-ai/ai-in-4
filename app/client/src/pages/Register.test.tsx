@@ -201,9 +201,11 @@ describe('Register Component', () => {
       expect(screen.getByRole('button', { name: 'Creating Account...' })).toBeInTheDocument();
       expect(screen.getByRole('button')).toBeDisabled();
 
-      resolveRegister!({
-        user: { id: 1, email: 'test@example.com', created_at: new Date().toISOString() },
-        access_token: 'token123',
+      await waitFor(() => {
+        resolveRegister!({
+          user: { id: 1, email: 'test@example.com', created_at: new Date().toISOString() },
+          access_token: 'token123',
+        });
       });
     });
 

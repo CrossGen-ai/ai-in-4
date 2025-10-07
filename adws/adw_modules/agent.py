@@ -116,6 +116,30 @@ def check_claude_installed() -> Optional[str]:
     return None
 
 
+def fix_concatenated_json(output_file: str) -> None:
+    """Fix Claude Code's stream-json output by splitting concatenated JSON objects.
+
+    Claude Code sometimes outputs multiple JSON objects on the same line without
+    newlines between them (e.g., ...}{"type":...). This function fixes that by
+    inserting newlines between concatenated objects.
+
+    Args:
+        output_file: Path to the JSONL file to fix in-place
+    """
+    try:
+        with open(output_file, "r") as f:
+            content = f.read()
+
+        # Split concatenated JSON objects by adding newlines between }{
+        fixed_content = content.replace('}{', '}\n{')
+
+        with open(output_file, "w") as f:
+            f.write(fixed_content)
+    except Exception as e:
+        # Don't fail the entire operation if this cleanup fails
+        print(f"Warning: Could not fix concatenated JSON in {output_file}: {e}", file=sys.stderr)
+
+
 def parse_jsonl_output(
     output_file: str,
 ) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]:
@@ -309,6 +333,9 @@ def prompt_claude_code(request: AgentPromptRequest) -> AgentPromptResponse:
 
         if result.returncode == 0:
             print(f"Output saved to: {request.output_file}")
+
+            # Fix concatenated JSON objects before parsing
+            fix_concatenated_json(request.output_file)
 
             # Parse the JSONL file
             messages, result_message = parse_jsonl_output(request.output_file)
