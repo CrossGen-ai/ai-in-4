@@ -58,3 +58,13 @@ This prompt helps you determine what documentation you should read based on the 
     - When creating custom hooks (working example to reference)
     - When implementing API integration in hooks (see actual implementation)
     - When you need a complete hook example with error handling and loading states
+
+- app_docs/feature-3e81e604-ai-course-platform-mvp.md
+  - Conditions:
+    - When working with authentication or magic link functionality
+    - When implementing user registration or experience assessment features
+    - When modifying the course platform landing, login, or registration pages
+    - When troubleshooting magic link token generation or validation
+    - When adding new authentication routes or user management endpoints
+    - When working with the AuthContext or protected routes
+    - When updating database models for users, experiences, or magic links
