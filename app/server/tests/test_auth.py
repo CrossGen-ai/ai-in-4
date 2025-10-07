@@ -7,18 +7,25 @@ from services.magic_link import serializer
 from core.config import settings
 
 
+# Helper for creating valid test data
+VALID_USER_DATA = {
+    "email": "test@example.com",
+    "name": "Test User",
+    "employment_status": "Student",
+    "primary_use_context": "Educational purposes",
+    "tried_ai_before": True,
+    "usage_frequency": "Weekly",
+    "comfort_level": 3,
+    "goals": ["Learning new skills", "Personal productivity/organization", "Research and information gathering"],
+    "learning_preference": "Hands-on practice with examples"
+}
+
+
 def test_register_creates_user_and_sends_magic_link(client):
     """Test user registration creates user and experience profile."""
     with patch("api.routes.auth.send_magic_link_email", new_callable=AsyncMock) as mock_send:
-        response = client.post(
-            "/api/auth/register",
-            json={
-                "email": "newuser@example.com",
-                "experience_level": "Intermediate",
-                "background": "Software Engineering",
-                "goals": "Master AI development"
-            }
-        )
+        test_data = {**VALID_USER_DATA, "email": "newuser@example.com"}
+        response = client.post("/api/auth/register", json=test_data)
 
         assert response.status_code == 201
         data = response.json()
@@ -30,29 +37,15 @@ def test_register_creates_user_and_sends_magic_link(client):
 
 def test_register_fails_with_duplicate_email(client):
     """Test registration fails when user already exists."""
+    test_data = {**VALID_USER_DATA, "email": "duplicate@example.com"}
+
     # First registration
     with patch("api.routes.auth.send_magic_link_email", new_callable=AsyncMock):
-        client.post(
-            "/api/auth/register",
-            json={
-                "email": "duplicate@example.com",
-                "experience_level": "Beginner",
-                "background": "Student",
-                "goals": "Learn"
-            }
-        )
+        client.post("/api/auth/register", json=test_data)
 
     # Second registration with same email
     with patch("api.routes.auth.send_magic_link_email", new_callable=AsyncMock):
-        response = client.post(
-            "/api/auth/register",
-            json={
-                "email": "duplicate@example.com",
-                "experience_level": "Advanced",
-                "background": "Professional",
-                "goals": "Expert level"
-            }
-        )
+        response = client.post("/api/auth/register", json=test_data)
 
         assert response.status_code == 400
         assert "already exists" in response.json()["detail"]
@@ -95,11 +88,18 @@ async def test_magic_link_request_for_existing_user(client, test_db):
     from services.user_service import create_user
     from models.schemas import UserCreate
 
+    from models.schemas import UserCreate
+
     user_data = UserCreate(
         email="existing@example.com",
-        experience_level="Beginner",
-        background="Test",
-        goals="Test"
+        name="Test User",
+        employment_status="Student",
+        primary_use_context="Educational purposes",
+        tried_ai_before=True,
+        usage_frequency="Weekly",
+        comfort_level=3,
+        goals=["Learning new skills", "Personal productivity/organization", "Research and information gathering"],
+        learning_preference="Hands-on practice with examples"
     )
     await create_user(user_data, test_db)
 

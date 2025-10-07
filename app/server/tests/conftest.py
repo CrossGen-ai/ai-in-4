@@ -78,7 +78,14 @@ async def test_user(test_db, setup_database):
         user_id=user.id,
         experience_level="Beginner",
         background="Testing",
-        goals="Learn AI",
+        name="Test User",
+        employment_status="Student",
+        primary_use_context="Educational purposes",
+        tried_ai_before=True,
+        usage_frequency="Weekly",
+        comfort_level=2,
+        goals=["Learning new skills", "Educational purposes", "Personal productivity/organization"],
+        learning_preference="Hands-on practice with examples"
     )
     test_db.add(experience)
     await test_db.commit()

@@ -15,12 +15,27 @@ async def create_user(user_data: UserCreate, db: AsyncSession) -> User:
     db.add(user)
     await db.flush()  # Flush to get user.id
 
-    # Create experience profile
+    # Create experience profile with all new extended fields
     experience = UserExperience(
         user_id=user.id,
+        # Legacy fields (for backward compatibility)
         experience_level=user_data.experience_level,
         background=user_data.background,
-        goals=user_data.goals
+        # New extended registration fields
+        name=user_data.name,
+        employment_status=user_data.employment_status,
+        employment_status_other=user_data.employment_status_other,
+        industry=user_data.industry,
+        role=user_data.role,
+        primary_use_context=user_data.primary_use_context,
+        tried_ai_before=user_data.tried_ai_before,
+        ai_tools_used=user_data.ai_tools_used,
+        usage_frequency=user_data.usage_frequency,
+        comfort_level=user_data.comfort_level,
+        goals=user_data.goals,  # JSON array field
+        challenges=user_data.challenges,
+        learning_preference=user_data.learning_preference,
+        additional_comments=user_data.additional_comments
     )
     db.add(experience)
     await db.commit()

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime, UTC
 from db.database import Base
@@ -23,9 +23,40 @@ class UserExperience(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
-    experience_level = Column(String(50), nullable=False)  # Beginner, Intermediate, Advanced
+
+    # Legacy fields (kept for backward compatibility)
+    experience_level = Column(String(50), nullable=True)  # Beginner, Intermediate, Advanced (now optional/deprecated)
     background = Column(Text, nullable=True)
-    goals = Column(Text, nullable=True)
+
+    # New extended registration fields
+    # Basic Info
+    name = Column(String(100), nullable=True)  # Made nullable for backward compatibility with existing records
+    employment_status = Column(String(50), nullable=True)
+    employment_status_other = Column(String(50), nullable=True)
+    industry = Column(String(100), nullable=True)
+    role = Column(String(100), nullable=True)
+
+    # Primary Use Context
+    primary_use_context = Column(String(50), nullable=True)
+
+    # AI Experience
+    tried_ai_before = Column(Boolean, nullable=True)
+    ai_tools_used = Column(JSON, nullable=True)  # Array of strings
+    usage_frequency = Column(String(50), nullable=True)
+    comfort_level = Column(Integer, nullable=True)  # 1-5
+
+    # Goals & Applications
+    goals = Column(JSON, nullable=True)  # Array of strings, exactly 3 items
+
+    # Biggest Challenges
+    challenges = Column(JSON, nullable=True)  # Array of strings
+
+    # Learning Preference
+    learning_preference = Column(String(50), nullable=True)
+
+    # Additional Comments
+    additional_comments = Column(Text, nullable=True)  # 500 chars max
+
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     # Relationships
