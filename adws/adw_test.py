@@ -36,6 +36,7 @@ from adw_modules.data_types import (
     TestResult,
     E2ETestResult,
     IssueClassSlashCommand,
+    TestEnsuranceReport,
 )
 from adw_modules.agent import execute_template
 from adw_modules.github import (
@@ -822,6 +823,626 @@ def run_e2e_tests_with_resolution(
     return results, passed_count, failed_count
 
 
+# ====================================================================
+# Test Ensurance System - Autonomous Test Creation and Validation
+# ====================================================================
+
+
+def extract_test_requirements_with_ai(
+    plan_file: str, adw_id: str, logger: logging.Logger
+) -> List[dict]:
+    """
+    Extract test requirements from plan file using AI.
+    Returns list of test requirements.
+    """
+    logger.info(f"Extracting test requirements from {plan_file}")
+
+    request = AgentTemplateRequest(
+        agent_name="test_requirements_extractor",
+        slash_command="/extract_test_requirements",
+        args=[plan_file],
+        adw_id=adw_id,
+    )
+
+    response = execute_template(request)
+
+    if not response.success:
+        logger.error(f"Failed to extract test requirements: {response.output}")
+        return []
+
+    try:
+        # Parse JSON response
+        requirements = parse_json(response.output, list)
+        return requirements if requirements else []
+    except Exception as e:
+        logger.error(f"Error parsing test requirements: {e}")
+        return []
+
+
+def categorize_tests_fast(requirements: List[dict], logger: logging.Logger) -> dict:
+    """
+    Fast Python categorization of test files.
+    Returns: {missing: [], obviously_broken: [], needs_validation: []}
+    """
+    import re
+
+    result = {"missing": [], "obviously_broken": [], "needs_validation": []}
+
+    for req in requirements:
+        test_file = req.get("test_file_path")
+        if not test_file:
+            continue
+
+        # Check 1: File exists?
+        if not os.path.exists(test_file):
+            logger.debug(f"  ✗ {test_file} - missing")
+            result["missing"].append(req)
+            continue
+
+        # Check 2: Obviously broken?
+        try:
+            with open(test_file, "r") as f:
+                content = f.read()
+
+            is_broken = (
+                len(content.strip()) < 10
+                or not re.search(r"def test_\w+", content)
+                or "assert" not in content
+            )
+
+            if is_broken:
+                logger.debug(f"  ✗ {test_file} - obviously broken")
+                req["content"] = content
+                result["obviously_broken"].append(req)
+            else:
+                logger.debug(f"  ? {test_file} - needs validation")
+                req["content"] = content
+                # Quick analysis for AI
+                req["quick_analysis"] = {
+                    "has_imports": "import" in content,
+                    "test_count": len(re.findall(r"def test_\w+", content)),
+                    "assertion_count": content.count("assert"),
+                }
+                result["needs_validation"].append(req)
+        except Exception as e:
+            logger.error(f"Error reading {test_file}: {e}")
+            result["missing"].append(req)
+
+    return result
+
+
+def validate_tests_batch_with_ai(
+    tests_to_validate: List[dict], adw_id: str, logger: logging.Logger
+) -> List[dict]:
+    """
+    Validate existing tests against requirements using AI (batched).
+    Returns list of validation results.
+    """
+    if not tests_to_validate:
+        return []
+
+    logger.info(f"Validating {len(tests_to_validate)} test files with AI")
+
+    # Build batch payload
+    batch_payload = {"tests_to_validate": tests_to_validate}
+
+    request = AgentTemplateRequest(
+        agent_name="test_batch_validator",
+        slash_command="/validate_test_batch",
+        args=[json.dumps(batch_payload, indent=2)],
+        adw_id=adw_id,
+    )
+
+    response = execute_template(request)
+
+    if not response.success:
+        logger.error(f"Failed to validate tests: {response.output}")
+        return []
+
+    try:
+        # Parse JSON response
+        validation_results = parse_json(response.output, list)
+        return validation_results if validation_results else []
+    except Exception as e:
+        logger.error(f"Error parsing validation results: {e}")
+        return []
+
+
+def determine_actions(
+    categorized: dict, validation_results: List[dict], logger: logging.Logger
+) -> dict:
+    """
+    Determine what actions to take for each test file.
+    Returns: {skip: [], create: [], replace: [], augment: []}
+    """
+    actions = {"skip": [], "create": [], "replace": [], "augment": []}
+
+    # Missing files -> create
+    actions["create"].extend(categorized.get("missing", []))
+
+    # Obviously broken -> replace
+    actions["replace"].extend(categorized.get("obviously_broken", []))
+
+    # Validation results -> categorize based on recommendation
+    for result in validation_results:
+        recommendation = result.get("recommendation", "complete")
+        test_file = result.get("test_file_path")
+
+        # Find the original requirement
+        original_req = next(
+            (
+                req
+                for req in categorized.get("needs_validation", [])
+                if req.get("test_file_path") == test_file
+            ),
+            None,
+        )
+
+        if not original_req:
+            continue
+
+        # Add validation results to the requirement
+        original_req["validation_result"] = result
+
+        if recommendation == "complete":
+            actions["skip"].append(original_req)
+        elif recommendation == "augment":
+            actions["augment"].append(original_req)
+        elif recommendation == "replace":
+            actions["replace"].append(original_req)
+
+    logger.debug(
+        f"Actions determined - "
+        f"skip: {len(actions['skip'])}, "
+        f"create: {len(actions['create'])}, "
+        f"replace: {len(actions['replace'])}, "
+        f"augment: {len(actions['augment'])}"
+    )
+
+    return actions
+
+
+def create_or_augment_test(
+    action_type: str, req: dict, adw_id: str, logger: logging.Logger
+) -> Tuple[bool, str]:
+    """
+    Create or augment a test file using AI.
+    Returns (success, test_file_path).
+    """
+    test_file = req.get("test_file_path")
+    logger.info(f"{action_type.capitalize()}ing test: {test_file}")
+
+    if action_type == "create":
+        # Build context for creation
+        context = {
+            "test_file_path": test_file,
+            "source_file_path": req.get("source_file_path", ""),
+            "description": req.get("description", ""),
+            "test_scenarios": req.get("test_scenarios", []),
+            "relevant_edge_cases": req.get("relevant_edge_cases", []),
+            "testing_framework": "pytest",  # Auto-detect or configurable
+        }
+
+        # Read source code if path exists
+        source_file = req.get("source_file_path")
+        if source_file and os.path.exists(source_file):
+            try:
+                with open(source_file, "r") as f:
+                    context["source_code"] = f.read()
+            except Exception as e:
+                logger.warning(f"Could not read source file {source_file}: {e}")
+                context["source_code"] = ""
+
+        # Find example test for pattern
+        example_test = find_example_test(logger)
+        if example_test:
+            context["example_test_code"] = example_test
+
+        request = AgentTemplateRequest(
+            agent_name=f"test_creator_{adw_id[:8]}",
+            slash_command="/create_test",
+            args=[json.dumps(context, indent=2)],
+            adw_id=adw_id,
+        )
+
+    else:  # augment
+        # Build context for augmentation
+        validation = req.get("validation_result", {})
+        coverage = validation.get("coverage_analysis", {})
+
+        context = {
+            "test_file_path": test_file,
+            "existing_test_code": req.get("content", ""),
+            "missing_scenarios": coverage.get("missing_scenarios", []),
+            "edge_cases": req.get("relevant_edge_cases", []),
+            "issues_to_fix": validation.get("issues", []),
+        }
+
+        # Read source code if available
+        source_file = req.get("source_file_path")
+        if source_file and os.path.exists(source_file):
+            try:
+                with open(source_file, "r") as f:
+                    context["source_code"] = f.read()
+            except Exception as e:
+                logger.warning(f"Could not read source file {source_file}: {e}")
+                context["source_code"] = ""
+
+        request = AgentTemplateRequest(
+            agent_name=f"test_augmentor_{adw_id[:8]}",
+            slash_command="/augment_test",
+            args=[json.dumps(context, indent=2)],
+            adw_id=adw_id,
+        )
+
+    response = execute_template(request)
+
+    if response.success:
+        return True, test_file
+    else:
+        logger.error(f"Failed to {action_type} test {test_file}: {response.output}")
+        return False, test_file
+
+
+def find_example_test(logger: logging.Logger) -> Optional[str]:
+    """Find an example test file to use as a pattern."""
+    # Look for common test files
+    example_paths = [
+        "app/server/tests/test_health.py",
+        "app/server/tests/test_api.py",
+    ]
+
+    import glob
+
+    # Also glob for any test file
+    test_files = glob.glob("app/server/tests/test_*.py")
+
+    # Try specific examples first
+    for path in example_paths:
+        if os.path.exists(path):
+            try:
+                with open(path, "r") as f:
+                    return f.read()
+            except Exception as e:
+                logger.debug(f"Could not read example {path}: {e}")
+
+    # Try any test file
+    for path in test_files:
+        if os.path.exists(path):
+            try:
+                with open(path, "r") as f:
+                    return f.read()
+            except Exception as e:
+                logger.debug(f"Could not read example {path}: {e}")
+
+    logger.warning("No example test files found")
+    return None
+
+
+def execute_test_actions_parallel(
+    actions: dict, adw_id: str, logger: logging.Logger, max_workers: int = 5
+) -> dict:
+    """
+    Execute create/augment actions in parallel.
+    Returns: {created: [], augmented: [], failed: []}
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    results = {"created": [], "augmented": [], "failed": []}
+
+    # Collect all tasks
+    tasks = []
+    for req in actions.get("create", []):
+        tasks.append(("create", req))
+    for req in actions.get("augment", []):
+        tasks.append(("augment", req))
+    for req in actions.get("replace", []):
+        tasks.append(("create", req))  # Replace = create new
+
+    if not tasks:
+        return results
+
+    logger.info(f"Executing {len(tasks)} test creation/augmentation tasks")
+
+    # Execute in parallel
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(
+                create_or_augment_test, action_type, req, adw_id, logger
+            ): (action_type, req)
+            for action_type, req in tasks
+        }
+
+        for future in as_completed(futures):
+            action_type, req = futures[future]
+            try:
+                success, test_file = future.result()
+                if success:
+                    result_key = f"{action_type}d"  # create -> created, augment -> augmented
+                    results[result_key].append(test_file)
+                    logger.info(f"  ✓ {action_type}d {test_file}")
+                else:
+                    results["failed"].append(test_file)
+                    logger.error(f"  ✗ Failed to {action_type} {test_file}")
+            except Exception as e:
+                logger.error(f"  ✗ Exception during {action_type}: {e}")
+                results["failed"].append(req.get("test_file_path", "unknown"))
+
+    return results
+
+
+def validate_and_fix_created_tests(
+    execution_results: dict, adw_id: str, logger: logging.Logger, max_fix_attempts: int = 2
+) -> dict:
+    """
+    Run pytest on created tests and attempt to fix failures.
+    Returns: {created_and_passing: [], augmented_and_passing: [], created_but_failing: []}
+    """
+    validated = {
+        "created_and_passing": [],
+        "augmented_and_passing": [],
+        "created_but_failing": [],
+    }
+
+    all_tests = execution_results.get("created", []) + execution_results.get(
+        "augmented", []
+    )
+
+    for test_file in all_tests:
+        action_type = (
+            "created" if test_file in execution_results.get("created", []) else "augmented"
+        )
+
+        logger.info(f"Validating {test_file}...")
+
+        # Determine working directory and relative path
+        if "app/server" in test_file:
+            cwd = "app/server"
+            relative_path = test_file.replace("app/server/", "")
+        elif "app/client" in test_file:
+            cwd = "app/client"
+            relative_path = test_file.replace("app/client/", "")
+        else:
+            # Fallback to current directory
+            cwd = "."
+            relative_path = test_file
+
+        # Run pytest on just this file
+        result = subprocess.run(
+            ["uv", "run", "pytest", relative_path, "-v", "--tb=short"],
+            capture_output=True,
+            text=True,
+            cwd=cwd,
+        )
+
+        if result.returncode == 0:
+            # Tests pass!
+            validated[f"{action_type}_and_passing"].append(test_file)
+            logger.info(f"  ✓ All tests passing in {test_file}")
+        else:
+            # Tests fail - attempt to fix
+            logger.warning(f"  ✗ Tests failing in {test_file}, attempting fix...")
+
+            fixed = attempt_test_fix(
+                test_file,
+                result.stdout + "\n" + result.stderr,
+                adw_id,
+                logger,
+                max_fix_attempts,
+            )
+
+            if fixed:
+                validated[f"{action_type}_and_passing"].append(test_file)
+                logger.info(f"  ✓ Fixed and passing: {test_file}")
+            else:
+                validated["created_but_failing"].append(test_file)
+                logger.error(f"  ✗ Could not fix: {test_file}")
+
+    return validated
+
+
+def attempt_test_fix(
+    test_file: str,
+    error_output: str,
+    adw_id: str,
+    logger: logging.Logger,
+    max_attempts: int,
+) -> bool:
+    """Attempt to fix failing test with AI."""
+
+    for attempt in range(1, max_attempts + 1):
+        logger.info(f"Fix attempt {attempt}/{max_attempts} for {test_file}...")
+
+        # Read current test code
+        try:
+            with open(test_file, "r") as f:
+                test_code = f.read()
+        except Exception as e:
+            logger.error(f"Could not read test file {test_file}: {e}")
+            return False
+
+        # Call fix agent
+        context = {
+            "test_file_path": test_file,
+            "test_code": test_code,
+            "error_output": error_output,
+        }
+
+        request = AgentTemplateRequest(
+            agent_name=f"test_fixer_{attempt}",
+            slash_command="/fix_test",
+            args=[json.dumps(context, indent=2)],
+            adw_id=adw_id,
+        )
+
+        response = execute_template(request)
+
+        if not response.success:
+            logger.error(f"Fix attempt {attempt} failed: {response.output}")
+            continue
+
+        # Determine working directory and relative path
+        if "app/server" in test_file:
+            cwd = "app/server"
+            relative_path = test_file.replace("app/server/", "")
+        elif "app/client" in test_file:
+            cwd = "app/client"
+            relative_path = test_file.replace("app/client/", "")
+        else:
+            cwd = "."
+            relative_path = test_file
+
+        # Re-run pytest
+        result = subprocess.run(
+            ["uv", "run", "pytest", relative_path, "-v"],
+            capture_output=True,
+            text=True,
+            cwd=cwd,
+        )
+
+        if result.returncode == 0:
+            logger.info(f"Fix successful on attempt {attempt}")
+            return True
+
+        # Update error for next attempt
+        error_output = result.stdout + "\n" + result.stderr
+
+    return False
+
+
+def format_test_ensurance_report(report: TestEnsuranceReport, adw_id: str) -> str:
+    """Format test ensurance report for GitHub comment."""
+    summary = f"## ✅ Test Creation Complete ({adw_id})\n\n"
+
+    summary += f"**Test Files Required:** {report.total_required}\n"
+    summary += f"**Already Complete:** {report.already_complete} ✓\n"
+
+    if report.created > 0:
+        summary += f"**Created:** {report.created} ✓\n"
+
+    if report.augmented > 0:
+        summary += f"**Augmented:** {report.augmented} ✓\n"
+
+    if report.failed > 0:
+        summary += f"**Failed:** {report.failed} ❌\n"
+
+    if report.all_passing:
+        summary += f"\n### ✅ All created/augmented tests passing\n"
+    else:
+        summary += f"\n### ❌ Some tests failed validation\n"
+
+    return summary
+
+
+def ensure_tests_exist_and_complete(
+    plan_file: str, adw_id: str, issue_number: str, logger: logging.Logger
+) -> TestEnsuranceReport:
+    """
+    Ensure all planned tests exist and are complete.
+    Returns report of actions taken.
+    """
+    logger.info("=== Test Ensurance Phase ===")
+
+    # STEP 1: Extract requirements (AI - 1 call)
+    logger.info("Step 1: Extracting test requirements from plan...")
+    requirements = extract_test_requirements_with_ai(plan_file, adw_id, logger)
+    logger.info(f"Found {len(requirements)} test files in plan")
+
+    if not requirements:
+        logger.info("No test files specified in plan, skipping test ensurance")
+        return TestEnsuranceReport(
+            total_required=0,
+            already_complete=0,
+            created=0,
+            augmented=0,
+            failed=0,
+            all_passing=True,
+        )
+
+    # STEP 2: Fast Python pre-filter
+    logger.info("Step 2: Categorizing tests...")
+    categorized = categorize_tests_fast(requirements, logger)
+    logger.info(
+        f"Missing: {len(categorized['missing'])}, "
+        f"Broken: {len(categorized['obviously_broken'])}, "
+        f"Need validation: {len(categorized['needs_validation'])}"
+    )
+
+    # STEP 3: AI validation (batched - 1 call if needed)
+    validation_results = []
+    if categorized["needs_validation"]:
+        logger.info("Step 3: Validating existing tests with AI...")
+        validation_results = validate_tests_batch_with_ai(
+            categorized["needs_validation"], adw_id, logger
+        )
+
+    # STEP 4: Determine actions
+    logger.info("Step 4: Determining actions...")
+    actions = determine_actions(categorized, validation_results, logger)
+
+    # Report to GitHub
+    analysis_msg = f"📊 Test Validation Results:\n"
+    analysis_msg += f"• {len(requirements)} test files required by plan\n"
+    analysis_msg += f"• {len(actions['skip'])} tests complete and correct ✓\n"
+    if actions["create"]:
+        analysis_msg += f"• {len(actions['create'])} tests missing (will create)\n"
+    if actions["augment"]:
+        analysis_msg += f"• {len(actions['augment'])} tests incomplete (will augment)\n"
+    if actions["replace"]:
+        analysis_msg += f"• {len(actions['replace'])} tests broken (will replace)\n"
+
+    make_issue_comment(
+        issue_number, format_issue_message(adw_id, "test_creator", analysis_msg)
+    )
+
+    # Check if any actions needed
+    actions_needed = (
+        len(actions["create"]) > 0
+        or len(actions["augment"]) > 0
+        or len(actions["replace"]) > 0
+    )
+
+    # STEP 5: Execute actions (parallel)
+    if actions_needed:
+        logger.info("Step 5: Creating/augmenting tests...")
+        execution_results = execute_test_actions_parallel(actions, adw_id, logger)
+    else:
+        logger.info("Step 5: No test creation needed - all tests complete")
+        execution_results = {"created": [], "augmented": [], "failed": []}
+
+    # STEP 6: Validate created tests
+    if execution_results["created"] or execution_results["augmented"]:
+        logger.info("Step 6: Validating created tests...")
+        validated = validate_and_fix_created_tests(execution_results, adw_id, logger)
+    else:
+        validated = {
+            "created_and_passing": [],
+            "augmented_and_passing": [],
+            "created_but_failing": [],
+        }
+
+    # Build report
+    report = TestEnsuranceReport(
+        total_required=len(requirements),
+        already_complete=len(actions.get("skip", []))
+        + len([r for r in validation_results if r.get("status") == "complete"]),
+        created=len(validated["created_and_passing"]),
+        augmented=len(validated["augmented_and_passing"]),
+        failed=len(validated["created_but_failing"]) + len(execution_results.get("failed", [])),
+        all_passing=len(validated["created_but_failing"]) == 0
+        and len(execution_results.get("failed", [])) == 0,
+    )
+
+    logger.info(
+        f"Test ensurance complete: "
+        f"{report.created} created, "
+        f"{report.augmented} augmented, "
+        f"{report.already_complete} already complete"
+    )
+
+    return report
+
+
 def main():
     """Main entry point."""
     # Load environment variables
@@ -928,6 +1549,57 @@ def main():
     make_issue_comment(
         issue_number, format_issue_message(adw_id, "ops", "✅ Starting test suite")
     )
+
+    # NEW: Test Ensurance Phase (autonomous test creation)
+    spec_file = state.get("plan_file")
+    if spec_file and os.path.exists(spec_file):
+        ADWLogger.separator("Test Ensurance")
+        logger.info("\n=== Test Ensurance Phase ===")
+
+        report = ensure_tests_exist_and_complete(
+            plan_file=spec_file, adw_id=adw_id, issue_number=issue_number, logger=logger
+        )
+
+        # Report results to GitHub
+        if report.created > 0 or report.augmented > 0:
+            make_issue_comment(
+                issue_number, format_test_ensurance_report(report, adw_id)
+            )
+
+            # Commit the new/updated tests
+            logger.info("Committing created/augmented tests...")
+            commit_files = []
+            # Collect all test files that were created or augmented
+            # Note: This is a simplified approach - in production we'd track exact files
+            import glob
+
+            test_files = glob.glob("app/server/tests/test_*.py")
+            for tf in test_files:
+                # Check if file was recently modified (within last minute)
+                if os.path.exists(tf):
+                    mtime = os.path.getmtime(tf)
+                    import time
+
+                    if time.time() - mtime < 60:  # Modified in last 60 seconds
+                        commit_files.append(tf)
+
+            if commit_files:
+                commit_msg = f"test_creator: feature: add/update unit tests\n\n"
+                commit_msg += f"- Created: {report.created} test files\n"
+                commit_msg += f"- Augmented: {report.augmented} test files\n"
+                commit_msg += f"- All created tests passing: {report.all_passing}\n\n"
+                commit_msg += (
+                    "🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\n"
+                )
+                commit_msg += "Co-Authored-By: Claude <noreply@anthropic.com>"
+
+                success, error = commit_changes(commit_msg)
+                if success:
+                    logger.info("Test files committed successfully")
+                else:
+                    logger.warning(f"Failed to commit test files: {error}")
+    else:
+        logger.info("No plan file found in state, skipping test ensurance phase")
 
     # Rich console: Test execution section
     ADWLogger.separator("Unit Test Execution")
