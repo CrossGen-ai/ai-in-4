@@ -1158,11 +1158,12 @@ def execute_test_actions_parallel(
     actions: dict, adw_id: str, logger: logging.Logger, max_workers: int = 5
 ) -> dict:
     """
-    Execute create/augment actions in parallel.
+    Execute create/augment actions sequentially.
     Returns: {created: [], augmented: [], failed: []}
-    """
-    from concurrent.futures import ThreadPoolExecutor, as_completed
 
+    Note: Changed from parallel to sequential execution to avoid race conditions
+    where multiple threads write to the same raw_output.jsonl file.
+    """
     results = {"created": [], "augmented": [], "failed": []}
 
     # Collect all tasks
@@ -1179,39 +1180,30 @@ def execute_test_actions_parallel(
 
     logger.info(f"Executing {len(tasks)} test creation/augmentation tasks")
 
-    # Execute in parallel
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {
-            executor.submit(
-                create_or_augment_test, action_type, req, adw_id, logger
-            ): (action_type, req)
-            for action_type, req in tasks
-        }
-
-        for future in as_completed(futures):
-            action_type, req = futures[future]
-            try:
-                success, test_file = future.result()
-                if success:
-                    # Map action_type to result key
-                    if action_type == "create":
-                        result_key = "created"
-                        action_past = "created"
-                    elif action_type == "augment":
-                        result_key = "augmented"
-                        action_past = "augmented"
-                    else:
-                        result_key = "failed"
-                        action_past = action_type
-
-                    results[result_key].append(test_file)
-                    logger.info(f"  ✓ {action_past} {test_file}")
+    # Execute sequentially to avoid file write conflicts
+    for action_type, req in tasks:
+        try:
+            success, test_file = create_or_augment_test(action_type, req, adw_id, logger)
+            if success:
+                # Map action_type to result key
+                if action_type == "create":
+                    result_key = "created"
+                    action_past = "created"
+                elif action_type == "augment":
+                    result_key = "augmented"
+                    action_past = "augmented"
                 else:
-                    results["failed"].append(test_file)
-                    logger.error(f"  ✗ Failed to {action_type} {test_file}")
-            except Exception as e:
-                logger.error(f"  ✗ Exception during {action_type}: {e}")
-                results["failed"].append(req.get("test_file_path", "unknown"))
+                    result_key = "failed"
+                    action_past = action_type
+
+                results[result_key].append(test_file)
+                logger.info(f"  ✓ {action_past} {test_file}")
+            else:
+                results["failed"].append(test_file)
+                logger.error(f"  ✗ Failed to {action_type} {test_file}")
+        except Exception as e:
+            logger.error(f"  ✗ Exception during {action_type}: {e}")
+            results["failed"].append(req.get("test_file_path", "unknown"))
 
     return results
 

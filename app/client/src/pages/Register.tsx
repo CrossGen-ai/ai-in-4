@@ -122,9 +122,13 @@ export function Register() {
     }
 
     // Validate all required fields
-    if (!formData.name || !formData.employment_status || !formData.primary_use_context ||
-        formData.tried_ai_before === null || !formData.usage_frequency ||
-        !formData.comfort_level || !formData.learning_preference) {
+    // Note: usage_frequency and comfort_level are only required if tried_ai_before is true
+    const requiredFieldsMissing = !formData.name || !formData.employment_status ||
+      !formData.primary_use_context || formData.tried_ai_before === null ||
+      !formData.learning_preference ||
+      (formData.tried_ai_before && (!formData.usage_frequency || !formData.comfort_level));
+
+    if (requiredFieldsMissing) {
       setError('Please fill in all required fields.');
       setLoading(false);
       return;
@@ -144,8 +148,8 @@ export function Register() {
         ai_tools_used: formData.tried_ai_before ? formData.ai_tools_used.map(tool =>
           tool === 'Other' && formData.ai_tools_other ? `Other: ${formData.ai_tools_other}` : tool
         ) : undefined,
-        usage_frequency: formData.usage_frequency,
-        comfort_level: formData.comfort_level,
+        usage_frequency: formData.tried_ai_before ? formData.usage_frequency : undefined,
+        comfort_level: formData.tried_ai_before ? formData.comfort_level : undefined,
         goals: formData.goals.map(goal =>
           goal === 'Other' && formData.goals_other ? `Other: ${formData.goals_other}` : goal
         ),
@@ -362,7 +366,14 @@ export function Register() {
                       required
                       value="false"
                       checked={formData.tried_ai_before === false}
-                      onChange={() => setFormData({ ...formData, tried_ai_before: false, ai_tools_used: [], ai_tools_other: '' })}
+                      onChange={() => setFormData({
+                        ...formData,
+                        tried_ai_before: false,
+                        ai_tools_used: [],
+                        ai_tools_other: '',
+                        usage_frequency: '',
+                        comfort_level: 0
+                      })}
                       className="w-4 h-4 text-blue-600 focus:ring-blue-500"
                     />
                     <span>No</span>
@@ -409,59 +420,61 @@ export function Register() {
               )}
             </div>
 
-            {/* USAGE & COMFORT LEVEL SECTION */}
-            <div className="space-y-4">
-              <h2 className="text-2xl font-bold text-white border-b border-slate-600 pb-2">Usage & Comfort Level</h2>
+            {/* USAGE & COMFORT LEVEL SECTION (conditional) */}
+            {formData.tried_ai_before === true && (
+              <div className="space-y-4">
+                <h2 className="text-2xl font-bold text-white border-b border-slate-600 pb-2">Usage & Comfort Level</h2>
 
-              {/* Usage Frequency */}
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  How often do you currently use AI tools? <span className="text-red-400">*</span>
-                </label>
-                <select
-                  required
-                  value={formData.usage_frequency}
-                  onChange={(e) => setFormData({ ...formData, usage_frequency: e.target.value })}
-                  className="w-full px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                >
-                  <option value="">Select frequency</option>
-                  {USAGE_FREQUENCY_OPTIONS.map(option => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
-                </select>
-              </div>
+                {/* Usage Frequency */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    How often do you currently use AI tools? <span className="text-red-400">*</span>
+                  </label>
+                  <select
+                    required={formData.tried_ai_before === true}
+                    value={formData.usage_frequency}
+                    onChange={(e) => setFormData({ ...formData, usage_frequency: e.target.value })}
+                    className="w-full px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="">Select frequency</option>
+                    {USAGE_FREQUENCY_OPTIONS.map(option => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
+                </div>
 
-              {/* Comfort Level */}
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-3">
-                  Rate your comfort level with AI (1-5) <span className="text-red-400">*</span>
-                </label>
-                <div className="space-y-2">
-                  {[1, 2, 3, 4, 5].map(level => (
-                    <label key={level} className="flex items-center space-x-3 text-slate-300 cursor-pointer hover:text-white">
-                      <input
-                        type="radio"
-                        name="comfort_level"
-                        required
-                        value={level}
-                        checked={formData.comfort_level === level}
-                        onChange={() => setFormData({ ...formData, comfort_level: level })}
-                        className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span>
-                        {level} - {
-                          level === 1 ? 'Complete beginner' :
-                          level === 2 ? 'Slightly familiar' :
-                          level === 3 ? 'Somewhat comfortable' :
-                          level === 4 ? 'Confident' :
-                          'Very confident'
-                        }
-                      </span>
-                    </label>
-                  ))}
+                {/* Comfort Level */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-3">
+                    Rate your comfort level with AI (1-5) <span className="text-red-400">*</span>
+                  </label>
+                  <div className="space-y-2">
+                    {[1, 2, 3, 4, 5].map(level => (
+                      <label key={level} className="flex items-center space-x-3 text-slate-300 cursor-pointer hover:text-white">
+                        <input
+                          type="radio"
+                          name="comfort_level"
+                          required={formData.tried_ai_before === true}
+                          value={level}
+                          checked={formData.comfort_level === level}
+                          onChange={() => setFormData({ ...formData, comfort_level: level })}
+                          className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span>
+                          {level} - {
+                            level === 1 ? 'Complete beginner' :
+                            level === 2 ? 'Slightly familiar' :
+                            level === 3 ? 'Somewhat comfortable' :
+                            level === 4 ? 'Confident' :
+                            'Very confident'
+                          }
+                        </span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* GOALS & APPLICATIONS SECTION */}
             <div className="space-y-4">
