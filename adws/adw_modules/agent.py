@@ -44,6 +44,13 @@ SLASH_COMMAND_MODEL_MAP: Final[Dict[SlashCommand, Dict[ModelSet, str]]] = {
     "/bug": {"base": "sonnet", "heavy": "opus"},
     "/feature": {"base": "sonnet", "heavy": "opus"},
     "/patch": {"base": "sonnet", "heavy": "opus"},
+    # Test ensurance and analysis commands
+    "/extract_test_requirements": {"base": "sonnet", "heavy": "sonnet"},
+    "/validate_test_batch": {"base": "sonnet", "heavy": "sonnet"},
+    "/create_test": {"base": "sonnet", "heavy": "opus"},
+    "/augment_test": {"base": "sonnet", "heavy": "opus"},
+    "/fix_test": {"base": "sonnet", "heavy": "opus"},
+    "/test_doctor": {"base": "sonnet", "heavy": "sonnet"},
 }
 
 
@@ -117,10 +124,20 @@ def parse_jsonl_output(
     Returns:
         Tuple of (all_messages, result_message) where result_message is None if not found
     """
+    messages = []
     try:
         with open(output_file, "r") as f:
-            # Read all lines and parse each as JSON
-            messages = [json.loads(line) for line in f if line.strip()]
+            # Read and parse each line individually to handle partial failures
+            for line_num, line in enumerate(f, 1):
+                if not line.strip():
+                    continue
+                try:
+                    messages.append(json.loads(line))
+                except json.JSONDecodeError as e:
+                    # Skip malformed lines but log them for debugging
+                    # This is common with very large output from Claude Code
+                    print(f"Skipping malformed JSON at line {line_num} in {output_file}: {e}", file=sys.stderr)
+                    continue
 
             # Find the result message (should be the last one)
             result_message = None
@@ -131,8 +148,8 @@ def parse_jsonl_output(
 
             return messages, result_message
     except Exception as e:
-        print(f"Error parsing JSONL file: {e}", file=sys.stderr)
-        return [], None
+        print(f"Error parsing JSONL file {output_file}: {e}", file=sys.stderr)
+        return messages, None  # Return what we parsed so far
 
 
 def convert_jsonl_to_json(jsonl_file: str) -> str:

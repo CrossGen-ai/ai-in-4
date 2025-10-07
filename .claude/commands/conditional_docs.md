@@ -68,3 +68,47 @@ This prompt helps you determine what documentation you should read based on the 
     - When adding new authentication routes or user management endpoints
     - When working with the AuthContext or protected routes
     - When updating database models for users, experiences, or magic links
+
+## Testing Documentation Triggers
+
+- app_docs/testing/README.md
+  - Conditions:
+    - When creating or modifying tests
+    - When fixing test failures
+    - When working with pytest or test files
+    - When debugging test errors
+    - When implementing test-related features
+
+- app_docs/testing/stack_guides/async_database_tests.md
+  - Conditions:
+    - When working with async database tests
+    - When testing SQLAlchemy async code
+    - When encountering greenlet errors
+    - When testing database fixtures or sessions
+    - When dealing with relationship loading in tests
+
+- app_docs/testing/stack_guides/fastapi_route_tests.md
+  - Conditions:
+    - When testing FastAPI routes or endpoints
+    - When working with mocks in API tests
+    - When encountering "mock not called" errors
+    - When testing Pydantic model validation
+    - When using AsyncMock in tests
+
+- app_docs/testing/failure_patterns/greenlet_errors.md
+  - Conditions:
+    - When seeing "MissingGreenlet" errors
+    - When tests fail with greenlet spawn errors
+    - When lazy-loading relationships fail in tests
+
+- app_docs/testing/failure_patterns/mock_import_paths.md
+  - Conditions:
+    - When mocks are not being called in tests
+    - When encountering mock import path issues
+    - When patch decorators seem ineffective
+
+- app_docs/testing/failure_patterns/pydantic_mock_validation.md
+  - Conditions:
+    - When Pydantic validation fails with mock objects
+    - When seeing "Input should be a valid string" errors with AsyncMock
+    - When response model validation fails in tests

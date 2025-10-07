@@ -11,10 +11,12 @@ from db.models import User, UserExperience
 
 
 # Create test database engine
-TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+# Use file-based database to avoid isolation issues with :memory: and async
+TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
 test_engine = create_async_engine(
     TEST_DATABASE_URL,
     poolclass=NullPool,
+    connect_args={"check_same_thread": False},
 )
 TestSessionLocal = async_sessionmaker(
     test_engine,
@@ -32,8 +34,6 @@ async def override_get_db():
         except Exception:
             await session.rollback()
             raise
-        finally:
-            await session.close()
 
 
 # Override the dependency globally
@@ -57,14 +57,14 @@ async def setup_database():
 
 
 @pytest.fixture
-async def test_db():
+async def test_db(setup_database):
     """Get test database session."""
     async with TestSessionLocal() as session:
         yield session
 
 
 @pytest.fixture
-async def test_user(test_db):
+async def test_user(test_db, setup_database):
     """Create a test user."""
     user = User(
         email="test@example.com",

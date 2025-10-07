@@ -9,7 +9,7 @@ from core.config import settings
 
 def test_register_creates_user_and_sends_magic_link(client):
     """Test user registration creates user and experience profile."""
-    with patch("services.magic_link.send_magic_link_email", new_callable=AsyncMock) as mock_send:
+    with patch("api.routes.auth.send_magic_link_email", new_callable=AsyncMock) as mock_send:
         response = client.post(
             "/api/auth/register",
             json={
@@ -31,7 +31,7 @@ def test_register_creates_user_and_sends_magic_link(client):
 def test_register_fails_with_duplicate_email(client):
     """Test registration fails when user already exists."""
     # First registration
-    with patch("services.magic_link.send_magic_link_email", new_callable=AsyncMock):
+    with patch("api.routes.auth.send_magic_link_email", new_callable=AsyncMock):
         client.post(
             "/api/auth/register",
             json={
@@ -43,7 +43,7 @@ def test_register_fails_with_duplicate_email(client):
         )
 
     # Second registration with same email
-    with patch("services.magic_link.send_magic_link_email", new_callable=AsyncMock):
+    with patch("api.routes.auth.send_magic_link_email", new_callable=AsyncMock):
         response = client.post(
             "/api/auth/register",
             json={
@@ -88,22 +88,23 @@ def test_register_fails_with_invalid_email_format(client):
     assert response.status_code == 422  # Validation error
 
 
-def test_magic_link_request_for_existing_user(client):
+@pytest.mark.asyncio
+async def test_magic_link_request_for_existing_user(client, test_db):
     """Test magic link request endpoint for existing users."""
-    # First create a user
-    with patch("services.magic_link.send_magic_link_email", new_callable=AsyncMock):
-        client.post(
-            "/api/auth/register",
-            json={
-                "email": "existing@example.com",
-                "experience_level": "Beginner",
-                "background": "Test",
-                "goals": "Test"
-            }
-        )
+    # Create user directly without triggering magic link creation
+    from services.user_service import create_user
+    from models.schemas import UserCreate
+
+    user_data = UserCreate(
+        email="existing@example.com",
+        experience_level="Beginner",
+        background="Test",
+        goals="Test"
+    )
+    await create_user(user_data, test_db)
 
     # Request magic link
-    with patch("services.magic_link.send_magic_link_email", new_callable=AsyncMock) as mock_send:
+    with patch("api.routes.auth.send_magic_link_email", new_callable=AsyncMock) as mock_send:
         response = client.post(
             "/api/auth/magic-link",
             json={"email": "existing@example.com"}
@@ -130,22 +131,30 @@ async def test_magic_link_validation_succeeds_with_valid_token(client, test_db, 
     """Test magic link validation succeeds with valid token."""
     # Generate magic link token
     token = serializer.dumps(test_user.email, salt="magic-link")
-    expires_at = datetime.now(UTC) + timedelta(minutes=15)
+    # Use naive datetimes to match SQLite storage (SQLite doesn't preserve timezone)
+    now = datetime.now()  # Naive datetime
+    expires_at = now + timedelta(minutes=15)
 
     magic_link = MagicLink(
         user_id=test_user.id,
         token=token,
         expires_at=expires_at,
+        created_at=now,
         used=False
     )
     test_db.add(magic_link)
     await test_db.commit()
 
-    # Validate token
-    response = client.post(
-        "/api/auth/validate",
-        json={"token": token}
-    )
+    # Mock datetime.now in the service to return naive datetime for comparison
+    with patch('services.magic_link.datetime') as mock_datetime:
+        mock_datetime.now.return_value = now
+        mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)
+
+        # Validate token
+        response = client.post(
+            "/api/auth/validate",
+            json={"token": token}
+        )
 
     assert response.status_code == 200
     data = response.json()
@@ -162,12 +171,14 @@ async def test_magic_link_validation_fails_with_expired_token(client, test_db, t
     """Test magic link validation fails with expired token."""
     # Generate token with past expiry
     token = serializer.dumps(test_user.email, salt="magic-link")
-    expires_at = datetime.now(UTC) - timedelta(minutes=1)  # Expired
+    now = datetime.now(UTC)
+    expires_at = now - timedelta(minutes=1)  # Expired
 
     magic_link = MagicLink(
         user_id=test_user.id,
         token=token,
         expires_at=expires_at,
+        created_at=now,
         used=False
     )
     test_db.add(magic_link)
@@ -188,12 +199,14 @@ async def test_magic_link_validation_fails_with_used_token(client, test_db, test
     """Test magic link validation fails with already used token."""
     # Generate token that's already been used
     token = serializer.dumps(test_user.email, salt="magic-link")
-    expires_at = datetime.now(UTC) + timedelta(minutes=15)
+    now = datetime.now(UTC)
+    expires_at = now + timedelta(minutes=15)
 
     magic_link = MagicLink(
         user_id=test_user.id,
         token=token,
         expires_at=expires_at,
+        created_at=now,
         used=True  # Already used
     )
     test_db.add(magic_link)

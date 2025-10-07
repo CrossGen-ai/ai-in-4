@@ -1,92 +1,83 @@
-# Create Test File
+---
+description: Create comprehensive test files following best practices
+---
 
-Create a complete test file from requirements.
+You are an expert test creator. Create tests that are maintainable, isolated, and comprehensive.
 
-## Variables
-context_json: $ARGUMENTS - Complete context for test creation
+## Process
 
-## Context Structure
-```json
-{
-  "test_file_path": "app/server/tests/test_auth.py",
-  "source_file_path": "app/server/api/routes/auth.py",
-  "source_code": "/* actual source code */",
-  "description": "Tests for authentication endpoints",
-  "test_scenarios": [
-    "Test magic link generation creates valid token",
-    "Test magic link validation succeeds with valid token"
-  ],
-  "relevant_edge_cases": [
-    "Empty email",
-    "Expired tokens"
-  ],
-  "example_test_code": "/* pattern from test_health.py */",
-  "testing_framework": "pytest"
-}
-```
+1. **Understand Context**
+   - Read the module/function to test
+   - Identify test boundaries (unit vs integration)
+   - Check existing test patterns in tests/
 
-## Instructions
+2. **Load Knowledge Base**
+   Before writing tests, review:
+   - app_docs/testing/README.md (always)
+   - Stack-specific guides matching the code under test:
+     * Database operations → async_database_tests.md
+     * API routes → fastapi_route_tests.md
+     * Service functions → service_layer_tests.md
+   - Common failure patterns to avoid
 
-### Step 1: Understand Context
-- You are creating: `{test_file_path}`
-- You are testing: `{source_file_path}`
-- Source code provided in `{source_code}`
-- Read to understand all functions/endpoints
+3. **Design Test Cases**
+   - Happy path (success scenarios)
+   - Edge cases (boundaries, empty inputs)
+   - Error cases (validation failures, exceptions)
+   - Integration points (dependencies, side effects)
 
-### Step 2: Follow Pattern
-- Framework: `{testing_framework}`
-- Example: `{example_test_code}`
-- Match this pattern for imports and structure
+4. **Write Tests**
+   - Follow patterns from knowledge base
+   - Use fixtures from conftest.py
+   - Apply stack-specific requirements
+   - Include descriptive docstrings
 
-### Step 3: Write Tests
+5. **Validate**
+   - Run tests: `uv run pytest tests/test_<name>.py -v`
+   - Check coverage
+   - Verify isolation (tests don't depend on each other)
 
-For EACH scenario in `{test_scenarios}`:
-1. Create test function: `test_<scenario_name>()`
-2. Follow pattern from example
-3. Use real assertions (not stubs)
-4. Cover edge cases where relevant
+## Test Structure Template
 
-### Step 4: Write File
-
-Use Write tool to create `{test_file_path}`:
-- Imports matching example pattern
-- One test per scenario
-- Clear docstrings
-- Real assertions
-- NO placeholder tests with `pass` or `assert True`
-
-## Example
-
-Given:
-```json
-{
-  "source_code": "def add(a, b): return a + b",
-  "test_scenarios": ["Add positive numbers", "Add negative numbers"],
-  "edge_cases": ["Zero"],
-  "example_test_code": "def test_health():\n    assert 1 == 1"
-}
-```
-
-Create:
 ```python
-def test_add_positive_numbers():
-    """Test adding two positive numbers"""
-    result = add(2, 3)
-    assert result == 5
+import pytest
+from unittest.mock import patch, AsyncMock
 
-def test_add_negative_numbers():
-    """Test adding negative numbers"""
-    result = add(-2, -3)
-    assert result == -5
+# Import subject under test
+from module.path import function_to_test
 
-def test_add_with_zero():
-    """Test edge case: zero"""
-    result = add(5, 0)
-    assert result == 5
+# Import fixtures if needed (auto-discovered from conftest.py)
+
+@pytest.mark.asyncio  # If testing async
+async def test_function_happy_path(test_db):  # Use fixtures
+    """Test description: what and why"""
+    # Arrange
+    test_data = {...}
+
+    # Act
+    result = await function_to_test(test_data, test_db)
+
+    # Assert
+    assert result.expected_field == expected_value
+
+def test_function_error_case():
+    """Test error handling"""
+    with pytest.raises(ExpectedException):
+        function_to_test(invalid_input)
 ```
+
+## Quality Checklist
+
+- [ ] Tests follow AAA pattern (Arrange, Act, Assert)
+- [ ] One assertion per test (when possible)
+- [ ] Descriptive test names (test_<function>_<scenario>)
+- [ ] No hard-coded values (use fixtures/factories)
+- [ ] Tests are isolated (no shared state)
+- [ ] Stack-specific patterns applied (from knowledge base)
 
 ## Output
-Return ONLY the test file path (no explanation):
-```
-/absolute/path/to/test_file.py
-```
+
+Create the test file with all test cases. Run pytest to verify they pass.
+
+**NOTE:** This command is framework-agnostic. Stack-specific knowledge lives
+in app_docs/testing/. Update KB, not this command, when patterns change.

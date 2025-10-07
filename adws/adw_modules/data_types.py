@@ -65,6 +65,8 @@ SlashCommand = Literal[
     "/create_test",
     "/augment_test",
     "/fix_test",
+    # Test analysis commands (Test Doctor system)
+    "/test_doctor",
 ]
 
 

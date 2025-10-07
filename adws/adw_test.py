@@ -54,6 +54,7 @@ from adw_modules.workflow_ops import (
     ensure_adw_id,
     classify_issue,
 )
+from adw_modules.test_analysis import analyze_and_fix_test_failures, should_rerun_tests
 
 # Rich console logging
 from adw_modules.rich_logging import (
@@ -415,6 +416,40 @@ def run_tests_with_resolution(
             break
 
         # If we have failed tests and this isn't the last attempt, try to resolve
+
+        # NEW: Run Test Doctor analysis first
+        logger.info("\n=== Running Test Doctor Analysis ===")
+        try:
+            analysis = analyze_and_fix_test_failures(
+                test_output=test_response.output,
+                adw_id=adw_id,
+                logger=logger,
+                working_dir=None,  # Standard mode - main repo
+                auto_fix=True,
+            )
+
+            logger.info(f"Test Doctor Analysis Complete:")
+            logger.info(f"  - Total failures: {analysis['total_failures']}")
+            logger.info(f"  - Known patterns: {analysis['known_patterns']}")
+            logger.info(f"  - New patterns: {analysis['new_patterns']}")
+            logger.info(f"  - Auto-fixes applied: {analysis['fixes_applied']}")
+
+            # If fixes were applied, report and continue to re-run tests
+            if analysis['fixes_applied'] > 0:
+                make_issue_comment(
+                    issue_number,
+                    format_issue_message(
+                        adw_id,
+                        "test_doctor",
+                        f"🔬 Applied {analysis['fixes_applied']} auto-fixes from Test Doctor",
+                    ),
+                )
+                logger.info(f"\n=== Re-running tests after Test Doctor auto-fixes ===")
+                continue
+        except Exception as e:
+            logger.warning(f"Test Doctor analysis failed: {e}")
+            # Continue with existing resolution logic
+
         logger.info("\n=== Attempting to resolve failed tests ===")
         make_issue_comment(
             issue_number,
@@ -1205,21 +1240,29 @@ def validate_and_fix_created_tests(
 
         logger.info(f"Validating {test_file}...")
 
-        # Determine working directory and relative path
+        # Determine working directory, relative path, and test command
         if "app/server" in test_file:
             cwd = "app/server"
             relative_path = test_file.replace("app/server/", "")
+            test_cmd = ["uv", "run", "pytest", relative_path, "-v", "--tb=short"]
         elif "app/client" in test_file:
             cwd = "app/client"
             relative_path = test_file.replace("app/client/", "")
+            # Use vitest for frontend TypeScript tests
+            test_cmd = ["yarn", "test", relative_path]
         else:
             # Fallback to current directory
             cwd = "."
             relative_path = test_file
+            # Try to determine test runner based on file extension
+            if test_file.endswith((".ts", ".tsx")):
+                test_cmd = ["yarn", "test", relative_path]
+            else:
+                test_cmd = ["uv", "run", "pytest", relative_path, "-v", "--tb=short"]
 
-        # Run pytest on just this file
+        # Run appropriate test command
         result = subprocess.run(
-            ["uv", "run", "pytest", relative_path, "-v", "--tb=short"],
+            test_cmd,
             capture_output=True,
             text=True,
             cwd=cwd,
@@ -1291,20 +1334,28 @@ def attempt_test_fix(
             logger.error(f"Fix attempt {attempt} failed: {response.output}")
             continue
 
-        # Determine working directory and relative path
+        # Determine working directory, relative path, and test command
         if "app/server" in test_file:
             cwd = "app/server"
             relative_path = test_file.replace("app/server/", "")
+            test_cmd = ["uv", "run", "pytest", relative_path, "-v"]
         elif "app/client" in test_file:
             cwd = "app/client"
             relative_path = test_file.replace("app/client/", "")
+            # Use vitest for frontend TypeScript tests
+            test_cmd = ["yarn", "test", relative_path]
         else:
             cwd = "."
             relative_path = test_file
+            # Try to determine test runner based on file extension
+            if test_file.endswith((".ts", ".tsx")):
+                test_cmd = ["yarn", "test", relative_path]
+            else:
+                test_cmd = ["uv", "run", "pytest", relative_path, "-v"]
 
-        # Re-run pytest
+        # Re-run appropriate test command
         result = subprocess.run(
-            ["uv", "run", "pytest", relative_path, "-v"],
+            test_cmd,
             capture_output=True,
             text=True,
             cwd=cwd,

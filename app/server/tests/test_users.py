@@ -77,8 +77,8 @@ def test_authorization_header_extraction(client):
 
 def test_missing_experience_profile(client):
     """Test edge case: user exists but has no experience profile"""
-    with patch('services.magic_link.validate_session_token') as mock_validate, \
-         patch('services.user_service.get_user_experience') as mock_get_experience:
+    with patch('api.routes.users.validate_session_token', new_callable=AsyncMock) as mock_validate, \
+         patch('api.routes.users.get_user_experience', new_callable=AsyncMock) as mock_get_experience:
         # Mock user authentication
         mock_user = AsyncMock()
         mock_user.id = 1
@@ -99,7 +99,7 @@ def test_missing_experience_profile(client):
 
 def test_get_current_user_profile_success(client):
     """Test successful retrieval of user profile with valid token"""
-    with patch('services.magic_link.validate_session_token') as mock_validate:
+    with patch('api.routes.users.validate_session_token', new_callable=AsyncMock) as mock_validate:
         # Mock authenticated user
         mock_user = AsyncMock()
         mock_user.id = 1
@@ -119,20 +119,25 @@ def test_get_current_user_profile_success(client):
 
 def test_get_current_user_experience_success(client):
     """Test successful retrieval of user experience with valid token"""
-    with patch('services.magic_link.validate_session_token') as mock_validate, \
-         patch('services.user_service.get_user_experience') as mock_get_experience:
+    with patch('api.routes.users.validate_session_token', new_callable=AsyncMock) as mock_validate, \
+         patch('api.routes.users.get_user_experience', new_callable=AsyncMock) as mock_get_experience:
         # Mock authenticated user
         mock_user = AsyncMock()
         mock_user.id = 1
         mock_user.email = "test@example.com"
         mock_validate.return_value = mock_user
 
-        # Mock experience profile
-        mock_experience = AsyncMock()
-        mock_experience.user_id = 1
-        mock_experience.programming_level = "intermediate"
-        mock_experience.ai_experience = "beginner"
-        mock_experience.learning_goals = "Build AI applications"
+        # Mock experience profile - create a proper mock object
+        from db.models import UserExperience
+        from datetime import datetime, UTC
+        mock_experience = UserExperience(
+            id=1,
+            user_id=1,
+            experience_level="Intermediate",
+            background="Software Engineering",
+            goals="Build AI applications",
+            created_at=datetime.now(UTC)
+        )
         mock_get_experience.return_value = mock_experience
 
         response = client.get(
@@ -142,13 +147,14 @@ def test_get_current_user_experience_success(client):
         assert response.status_code == 200
         data = response.json()
         assert data["user_id"] == 1
-        assert data["programming_level"] == "intermediate"
-        assert data["ai_experience"] == "beginner"
+        assert data["experience_level"] == "Intermediate"
+        assert data["background"] == "Software Engineering"
+        assert data["goals"] == "Build AI applications"
 
 
 def test_token_validation_called_with_correct_token(client):
     """Test that validate_session_token is called with extracted token"""
-    with patch('services.magic_link.validate_session_token') as mock_validate:
+    with patch('api.routes.users.validate_session_token', new_callable=AsyncMock) as mock_validate:
         mock_user = AsyncMock()
         mock_user.id = 1
         mock_user.email = "test@example.com"

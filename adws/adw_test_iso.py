@@ -52,6 +52,7 @@ from adw_modules.workflow_ops import (
     classify_issue,
 )
 from adw_modules.worktree_ops import validate_worktree
+from adw_modules.test_analysis import analyze_and_fix_test_failures, should_rerun_tests
 
 # Rich console logging
 from adw_modules.rich_logging import (
@@ -402,6 +403,41 @@ def run_tests_with_resolution(
             break
 
         # If we have failed tests and this isn't the last attempt, try to resolve
+
+        # NEW: Run Test Doctor analysis first (ISO mode with worktree)
+        logger.info("\n=== Running Test Doctor Analysis (ISO Mode) ===")
+        try:
+            analysis = analyze_and_fix_test_failures(
+                test_output=test_response.output,
+                adw_id=adw_id,
+                logger=logger,
+                working_dir=worktree_path,  # ISO mode - use worktree path
+                auto_fix=True,
+            )
+
+            logger.info(f"Test Doctor Analysis Complete (ISO):")
+            logger.info(f"  - Total failures: {analysis['total_failures']}")
+            logger.info(f"  - Known patterns: {analysis['known_patterns']}")
+            logger.info(f"  - New patterns: {analysis['new_patterns']}")
+            logger.info(f"  - Auto-fixes applied: {analysis['fixes_applied']}")
+            logger.info(f"  - Worktree: {worktree_path}")
+
+            # If fixes were applied, report and continue to re-run tests
+            if analysis['fixes_applied'] > 0:
+                make_issue_comment(
+                    issue_number,
+                    format_issue_message(
+                        adw_id,
+                        "test_doctor",
+                        f"🔬 Applied {analysis['fixes_applied']} auto-fixes from Test Doctor (ISO)",
+                    ),
+                )
+                logger.info(f"\n=== Re-running tests after Test Doctor auto-fixes ===")
+                continue
+        except Exception as e:
+            logger.warning(f"Test Doctor analysis failed: {e}")
+            # Continue with existing resolution logic
+
         logger.info("\n=== Attempting to resolve failed tests ===")
         make_issue_comment(
             issue_number,
@@ -1032,14 +1068,30 @@ def validate_and_fix_created_tests(
 
         logger.info(f"Validating {test_file}...")
 
-        # Make path relative to working_dir for pytest
+        # Make path relative to working_dir for test command
         full_test_path = os.path.join(working_dir, test_file) if working_dir else test_file
 
+        # Determine test command based on file type
+        if test_file.endswith((".ts", ".tsx")):
+            # Frontend TypeScript test - use vitest
+            # For vitest, we need to be in the client directory
+            if "app/client" in test_file:
+                test_cwd = os.path.join(working_dir, "app/client") if working_dir else "app/client"
+                relative_test_path = test_file.replace("app/client/", "")
+            else:
+                test_cwd = working_dir
+                relative_test_path = test_file
+            test_cmd = ["yarn", "test", relative_test_path]
+        else:
+            # Backend Python test - use pytest
+            test_cwd = working_dir
+            test_cmd = ["uv", "run", "pytest", full_test_path, "-v", "--tb=short"]
+
         result = subprocess.run(
-            ["uv", "run", "pytest", full_test_path, "-v", "--tb=short"],
+            test_cmd,
             capture_output=True,
             text=True,
-            cwd=working_dir,
+            cwd=test_cwd,
         )
 
         if result.returncode == 0:
@@ -1109,11 +1161,26 @@ def attempt_test_fix(
             logger.error(f"Fix attempt {attempt} failed: {response.output}")
             continue
 
+        # Determine test command based on file type
+        if test_file.endswith((".ts", ".tsx")):
+            # Frontend TypeScript test - use vitest
+            if "app/client" in test_file:
+                test_cwd = os.path.join(working_dir, "app/client") if working_dir else "app/client"
+                relative_test_path = test_file.replace("app/client/", "")
+            else:
+                test_cwd = working_dir
+                relative_test_path = test_file
+            test_cmd = ["yarn", "test", relative_test_path]
+        else:
+            # Backend Python test - use pytest
+            test_cwd = working_dir
+            test_cmd = ["uv", "run", "pytest", full_test_path, "-v"]
+
         result = subprocess.run(
-            ["uv", "run", "pytest", full_test_path, "-v"],
+            test_cmd,
             capture_output=True,
             text=True,
-            cwd=working_dir,
+            cwd=test_cwd,
         )
 
         if result.returncode == 0:
