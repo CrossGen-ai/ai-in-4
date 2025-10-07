@@ -175,6 +175,7 @@ ADW (AI Developer Workflow) is a **Level 3-4 meta-agentic system** that:
 - Runs workflows in parallel (up to 15x throughput via worktrees)
 - Generates its own capabilities (meta-command generation)
 - Tracks and optimizes its own performance (KPI dashboard)
+- Creates and validates unit tests autonomously (test ensurance)
 - Self-extends and self-improves
 
 ### Capability Levels
@@ -182,7 +183,7 @@ ADW (AI Developer Workflow) is a **Level 3-4 meta-agentic system** that:
 **Level 0-1:** Basic automation (script execution)
 **Level 2:** Multi-phase workflows (plan → build → test)
 **Level 3:** Self-monitoring and optimization (KPI tracking, model selection)
-**Level 4:** Self-extension (generates new slash commands)
+**Level 4:** Self-extension (generates new slash commands, autonomous test creation)
 **Level 5:** Autonomous operation (ZTE - Zero Touch Execution)
 
 **Current ADW Status:** Level 3-4 (moving toward Level 5)
@@ -735,6 +736,66 @@ Continuously reviews implementation during build phase, catching issues early.
 - Better code quality
 - Reduced rework
 
+### 7. Autonomous Test Creation (Level 4)
+
+**What It Does:**
+Automatically creates, validates, and fixes unit tests to ensure 100% test coverage for planned features.
+
+**Workflow:**
+```
+ADW Test Phase
+  ↓
+Test Ensurance (NEW)
+  ├─ 1. Extract test requirements from plan (AI)
+  ├─ 2. Categorize tests (Python: missing/broken/needs-validation)
+  ├─ 3. Validate existing tests (AI - batched)
+  ├─ 4. Determine actions (skip/create/augment/replace)
+  ├─ 5. Execute actions in parallel (AI - up to 5 concurrent)
+  ├─ 6. Validate created tests with pytest
+  └─ 7. Commit passing tests
+  ↓
+Run Full Test Suite (with auto-created tests)
+```
+
+**Commands:**
+- `/extract_test_requirements <plan-file>` - Extract all test file requirements
+- `/validate_test_batch <batch-json>` - Validate existing tests against requirements
+- `/create_test <context-json>` - Create complete test file from scratch
+- `/augment_test <context-json>` - Add missing scenarios to existing test
+- `/fix_test <context-json>` - Fix auto-created test that fails pytest
+
+**Key Features:**
+1. **Hybrid AI + Python Design**
+   - Python: Fast file checks, orchestration, git ops
+   - AI: Semantic understanding, test generation, validation
+
+2. **Smart Categorization**
+   - Missing files → create from scratch
+   - Obviously broken (empty/no asserts) → replace
+   - Needs validation → AI semantic check
+
+3. **Parallel Execution**
+   - Creates/augments up to 5 tests simultaneously
+   - Batched validation (1 AI call for multiple tests)
+   - ~60 seconds for 10 test files
+
+4. **Self-Healing**
+   - Validates created tests with pytest
+   - Auto-fixes failures (up to 2 attempts)
+   - Only commits passing tests
+
+**Performance:**
+- **Time:** ~60 seconds for 10 test files (2 missing, 1 broken, 5 validate, 2 complete)
+- **Cost:** ~$0.15-0.30 per test creation session
+- **API Calls:** 5-8 calls (extract, validate, create×3, fix×2)
+
+**Integration:**
+- Runs automatically in `adw_test.py` before test execution
+- Creates tests → validates → commits → runs full suite
+- Ensures features never ship without tests
+
+**Location:** `adws/adw_test.py` (lines 826-1416)
+
 ---
 
 ## State Management
@@ -827,7 +888,7 @@ state.save()
 
 ## Command Reference
 
-### Slash Commands (28+ commands)
+### Slash Commands (33+ commands)
 
 **Development Workflows:**
 - `/feature` - Implement new features
@@ -843,6 +904,13 @@ state.save()
 - `/resolve_failed_test` - Fix test failures
 - `/resolve_failed_e2e_test` - Fix E2E failures
 - `/in_loop_review` - Continuous review
+
+**Autonomous Test Creation:**
+- `/extract_test_requirements` - Extract test specs from plan
+- `/validate_test_batch` - Validate existing tests against requirements
+- `/create_test` - Create new test file from requirements
+- `/augment_test` - Add missing scenarios to existing tests
+- `/fix_test` - Fix auto-created tests that fail validation
 
 **Documentation:**
 - `/document` - Generate docs
@@ -963,6 +1031,7 @@ adws/
 - `AgentTemplateRequest` - Agent execution request
 - `ADWStateData` - State schema with validation
 - `ADWExtractionResult` - Workflow classification result
+- `TestEnsuranceReport` - Autonomous test creation report
 - Type safety via Pydantic v2
 
 **git_ops.py**
@@ -1033,7 +1102,15 @@ Phase 2: Implementation
   - commit_changes()
      ↓
 Phase 3: Testing
-  - /test → test suite
+  - Test Ensurance (NEW):
+    • /extract_test_requirements → parse plan
+    • categorize_tests_fast() → missing/broken/needs-validation
+    • /validate_test_batch → check existing tests
+    • determine_actions() → skip/create/augment/replace
+    • execute_test_actions_parallel() → /create_test, /augment_test
+    • validate_and_fix_created_tests() → pytest + /fix_test
+    • commit_changes() → commit created tests
+  - /test → run full test suite (includes auto-created tests)
   - /resolve_failed_test (if needed)
   - commit_changes()
      ↓
