@@ -34,8 +34,8 @@ export function DevLogin() {
       // Login with the token (login function handles storing and fetching user)
       await login(response.access_token);
 
-      // Redirect to home
-      navigate('/');
+      // Redirect to courses
+      navigate('/courses');
     } catch (err: any) {
       setError(err.message || 'Failed to login');
     }
