@@ -63,7 +63,7 @@ from adw_modules.worktree_ops import (
     find_next_available_ports,
     setup_worktree_environment,
 )
-from adw_modules.utils import setup_logger, check_env_vars
+from adw_modules.utils import setup_logger, check_env_vars, format_issue_message
 from adw_modules.data_types import (
     GitHubIssue,
     AgentTemplateRequest,
@@ -319,7 +319,7 @@ def main():
 
     make_issue_comment(
         issue_number,
-        f"{adw_id}_ops: 🔍 Using state\n```json\n{json.dumps(state.data, indent=2)}\n```",
+        format_issue_message(adw_id, "ops", f"🔍 Using state\n```json\n{json.dumps(state.data, indent=2)}\n```"),
     )
 
     # Get patch content from issue or comments containing 'adw_patch'
@@ -438,7 +438,7 @@ def main():
     # Post final state summary to issue
     make_issue_comment(
         issue_number,
-        f"{adw_id}_ops: 📋 Final isolated patch state:\n```json\n{json.dumps(state.data, indent=2)}\n```",
+        format_issue_message(adw_id, "ops", f"📋 Final isolated patch state:\n```json\n{json.dumps(state.data, indent=2)}\n```"),
     )
 
 

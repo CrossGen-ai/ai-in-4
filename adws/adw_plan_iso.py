@@ -44,11 +44,10 @@ from adw_modules.workflow_ops import (
     build_plan,
     generate_branch_name,
     create_commit,
-    format_issue_message,
     ensure_adw_id,
     AGENT_PLANNER,
 )
-from adw_modules.utils import setup_logger, check_env_vars
+from adw_modules.utils import setup_logger, check_env_vars, format_issue_message
 from adw_modules.data_types import GitHubIssue, IssueClassSlashCommand, AgentTemplateRequest
 from adw_modules.agent import execute_template
 from adw_modules.worktree_ops import (
@@ -146,7 +145,7 @@ def main():
 
     make_issue_comment(
         issue_number,
-        f"{adw_id}_ops: 🔍 Using state\n```json\n{json.dumps(state.data, indent=2)}\n```",
+        format_issue_message(adw_id, "ops", f"🔍 Using state\n```json\n{json.dumps(state.data, indent=2)}\n```"),
     )
 
     # Classify the issue
@@ -344,7 +343,7 @@ def main():
     # Post final state summary to issue
     make_issue_comment(
         issue_number,
-        f"{adw_id}_ops: 📋 Final planning state:\n```json\n{json.dumps(state.data, indent=2)}\n```"
+        format_issue_message(adw_id, "ops", f"📋 Final planning state:\n```json\n{json.dumps(state.data, indent=2)}\n```")
     )
 
 

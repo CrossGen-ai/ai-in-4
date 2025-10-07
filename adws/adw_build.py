@@ -30,10 +30,9 @@ from adw_modules.github import fetch_issue, make_issue_comment, get_repo_url, ex
 from adw_modules.workflow_ops import (
     implement_plan,
     create_commit,
-    format_issue_message,
     AGENT_IMPLEMENTOR,
 )
-from adw_modules.utils import setup_logger, check_env_vars
+from adw_modules.utils import setup_logger, check_env_vars, format_issue_message
 from adw_modules.data_types import GitHubIssue
 
 # Rich console logging
@@ -72,7 +71,7 @@ def main():
         issue_number = state.get("issue_number", issue_number)
         make_issue_comment(
             issue_number,
-            f"{adw_id}_ops: 🔍 Found existing state - resuming build\n```json\n{json.dumps(state.data, indent=2)}\n```"
+            format_issue_message(adw_id, "ops", f"🔍 Found existing state - resuming build\n```json\n{json.dumps(state.data, indent=2)}\n```")
         )
     else:
         # No existing state found

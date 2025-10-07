@@ -59,6 +59,12 @@ SlashCommand = Literal[
     "/review",
     "/patch",
     "/document",
+    # Test ensurance commands (autonomous test creation)
+    "/extract_test_requirements",
+    "/validate_test_batch",
+    "/create_test",
+    "/augment_test",
+    "/fix_test",
 ]
 
 
@@ -267,3 +273,14 @@ class DocumentationResult(BaseModel):
     documentation_created: bool
     documentation_path: Optional[str] = None
     error_message: Optional[str] = None
+
+
+class TestEnsuranceReport(BaseModel):
+    """Report of test ensurance actions taken during test phase."""
+
+    total_required: int  # Total test files required by plan
+    already_complete: int  # Test files already complete and correct
+    created: int  # Test files created from scratch
+    augmented: int  # Test files augmented with missing scenarios
+    failed: int  # Test files that failed creation/validation
+    all_passing: bool  # Whether all created/augmented tests are passing

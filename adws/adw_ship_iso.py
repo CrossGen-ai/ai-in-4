@@ -40,8 +40,7 @@ from adw_modules.github import (
     get_repo_url,
     extract_repo_path,
 )
-from adw_modules.workflow_ops import format_issue_message
-from adw_modules.utils import setup_logger, check_env_vars
+from adw_modules.utils import setup_logger, check_env_vars, format_issue_message
 from adw_modules.worktree_ops import validate_worktree
 from adw_modules.data_types import ADWStateData
 
@@ -321,7 +320,7 @@ def main():
     # Post final state summary
     make_issue_comment(
         issue_number,
-        f"{adw_id}_ops: 📋 Final ship state:\n```json\n{json.dumps(state.data, indent=2)}\n```"
+        format_issue_message(adw_id, "ops", f"📋 Final ship state:\n```json\n{json.dumps(state.data, indent=2)}\n```")
     )
     
     logger.info("Ship workflow completed successfully")

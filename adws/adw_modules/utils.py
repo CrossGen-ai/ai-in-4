@@ -241,3 +241,36 @@ def get_safe_subprocess_env() -> Dict[str, str]:
     
     # Filter out None values
     return {k: v for k, v in safe_env_vars.items() if v is not None}
+
+
+def format_issue_message(
+    adw_id: str, agent_name: str, message: str, session_id: Optional[str] = None
+) -> str:
+    """Format a message for issue comments with ADW tracking and bot identifier.
+
+    This function adds the [ADW-BOT] identifier to prevent webhook loops when
+    ADW posts comments to GitHub issues. Without this identifier, comments
+    containing "adw_" (like state JSON) would trigger classification webhooks.
+
+    Args:
+        adw_id: The ADW workflow ID (8-character UUID)
+        agent_name: The agent posting the comment (e.g., "ops", "planner", "implementor")
+        message: The message content to post
+        session_id: Optional session identifier for multi-session agents
+
+    Returns:
+        Formatted message with [ADW-BOT] identifier
+
+    Examples:
+        >>> format_issue_message("3e81e604", "ops", "Starting review")
+        '[ADW-BOT] 3e81e604_ops: Starting review'
+
+        >>> format_issue_message("3e81e604", "planner", "Plan created", "session_1")
+        '[ADW-BOT] 3e81e604_planner_session_1: Plan created'
+    """
+    # Import here to avoid circular dependency
+    from adw_modules.github import ADW_BOT_IDENTIFIER
+
+    if session_id:
+        return f"{ADW_BOT_IDENTIFIER} {adw_id}_{agent_name}_{session_id}: {message}"
+    return f"{ADW_BOT_IDENTIFIER} {adw_id}_{agent_name}: {message}"

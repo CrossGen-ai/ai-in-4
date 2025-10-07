@@ -46,7 +46,7 @@ from adw_modules.workflow_ops import (
     find_spec_file,
     AGENT_IMPLEMENTOR,
 )
-from adw_modules.utils import setup_logger, parse_json, check_env_vars
+from adw_modules.utils import setup_logger, parse_json, check_env_vars, format_issue_message
 from adw_modules.data_types import (
     GitHubIssue,
     AgentTemplateRequest,
@@ -423,7 +423,7 @@ def main():
         issue_number = state.get("issue_number", issue_number)
         make_issue_comment(
             issue_number,
-            f"{adw_id}_ops: 🔍 Found existing state - starting review\n```json\n{json.dumps(state.data, indent=2)}\n```",
+            format_issue_message(adw_id, "ops", f"🔍 Found existing state - starting review\n```json\n{json.dumps(state.data, indent=2)}\n```"),
         )
     else:
         # No existing state found

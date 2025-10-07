@@ -31,6 +31,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from adw_modules.workflow_ops import ensure_adw_id
 from adw_modules.github import make_issue_comment
+from adw_modules.utils import format_issue_message
 
 # Rich console logging
 from adw_modules.rich_logging import (
@@ -79,7 +80,7 @@ def main():
     try:
         make_issue_comment(
             issue_number,
-            f"{adw_id}_ops: 🚀 **Starting Zero Touch Execution (ZTE)**\n\n"
+            format_issue_message(adw_id, "ops", "🚀 **Starting Zero Touch Execution (ZTE)**\n\n")
             "This workflow will automatically:\n"
             "1. ✍️ Plan the implementation\n"
             "2. 🔨 Build the solution\n"
@@ -144,9 +145,9 @@ def main():
         try:
             make_issue_comment(
                 issue_number,
-                f"{adw_id}_ops: ❌ **ZTE Aborted** - Test phase failed\n\n"
+                format_issue_message(adw_id, "ops", "❌ **ZTE Aborted** - Test phase failed\n\n"
                 "Automatic shipping cancelled due to test failures.\n"
-                "Please fix the tests and run the workflow again.",
+                "Please fix the tests and run the workflow again."),
             )
         except:
             pass
@@ -171,9 +172,9 @@ def main():
         try:
             make_issue_comment(
                 issue_number,
-                f"{adw_id}_ops: ❌ **ZTE Aborted** - Review phase failed\n\n"
+                format_issue_message(adw_id, "ops", "❌ **ZTE Aborted** - Review phase failed\n\n"
                 "Automatic shipping cancelled due to review failures.\n"
-                "Please address the review issues and run the workflow again.",
+                "Please address the review issues and run the workflow again."),
             )
         except:
             pass
@@ -211,9 +212,9 @@ def main():
         try:
             make_issue_comment(
                 issue_number,
-                f"{adw_id}_ops: ❌ **ZTE Failed** - Ship phase failed\n\n"
+                format_issue_message(adw_id, "ops", "❌ **ZTE Failed** - Ship phase failed\n\n"
                 "Could not automatically approve and merge the PR.\n"
-                "Please check the ship logs and merge manually if needed.",
+                "Please check the ship logs and merge manually if needed."),
             )
         except:
             pass
@@ -229,14 +230,14 @@ def main():
     try:
         make_issue_comment(
             issue_number,
-            f"{adw_id}_ops: 🎉 **Zero Touch Execution Complete!**\n\n"
+            format_issue_message(adw_id, "ops", "🎉 **Zero Touch Execution Complete!**\n\n"
             "✅ Plan phase completed\n"
             "✅ Build phase completed\n"
             "✅ Test phase completed\n"
             "✅ Review phase completed\n"
             "✅ Documentation phase completed\n"
             "✅ Ship phase completed\n\n"
-            "🚢 **Code has been automatically shipped to production!**",
+            "🚢 **Code has been automatically shipped to production!**"),
         )
     except:
         pass

@@ -15,7 +15,8 @@ from adw_modules.data_types import (
     ADWExtractionResult,
 )
 from adw_modules.agent import execute_template
-from adw_modules.github import get_repo_url, extract_repo_path, ADW_BOT_IDENTIFIER
+from adw_modules.github import get_repo_url, extract_repo_path
+from adw_modules.utils import format_issue_message
 from adw_modules.state import ADWState
 from adw_modules.utils import parse_json
 
@@ -40,16 +41,6 @@ AVAILABLE_ADW_WORKFLOWS = [
     "adw_plan_build_test_review",
     "adw_sdlc",
 ]
-
-
-def format_issue_message(
-    adw_id: str, agent_name: str, message: str, session_id: Optional[str] = None
-) -> str:
-    """Format a message for issue comments with ADW tracking and bot identifier."""
-    # Always include ADW_BOT_IDENTIFIER to prevent webhook loops
-    if session_id:
-        return f"{ADW_BOT_IDENTIFIER} {adw_id}_{agent_name}_{session_id}: {message}"
-    return f"{ADW_BOT_IDENTIFIER} {adw_id}_{agent_name}: {message}"
 
 
 def extract_adw_info(text: str, temp_adw_id: str) -> ADWExtractionResult:

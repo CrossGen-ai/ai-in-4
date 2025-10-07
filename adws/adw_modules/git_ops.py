@@ -10,6 +10,7 @@ from typing import Optional, Tuple
 
 # Import GitHub functions from existing module
 from adw_modules.github import get_repo_url, extract_repo_path, make_issue_comment
+from adw_modules.utils import format_issue_message
 
 
 def get_current_branch(cwd: Optional[str] = None) -> str:
@@ -171,7 +172,7 @@ def finalize_git_operations(
         logger.info(f"Found existing PR: {pr_url}")
         # Post PR link for easy reference
         if issue_number and adw_id:
-            make_issue_comment(issue_number, f"{adw_id}_ops: ✅ Pull request: {pr_url}")
+            make_issue_comment(issue_number, format_issue_message(adw_id, "ops", f"✅ Pull request: {pr_url}"))
     else:
         # Create new PR - fetch issue data first
         if issue_number:
@@ -196,7 +197,7 @@ def finalize_git_operations(
             # Post new PR link
             if issue_number and adw_id:
                 make_issue_comment(
-                    issue_number, f"{adw_id}_ops: ✅ Pull request created: {pr_url}"
+                    issue_number, format_issue_message(adw_id, "ops", f"✅ Pull request created: {pr_url}")
                 )
         else:
             logger.error(f"Failed to create PR: {error}")
