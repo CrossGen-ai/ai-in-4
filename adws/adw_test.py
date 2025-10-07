@@ -1158,9 +1158,19 @@ def execute_test_actions_parallel(
             try:
                 success, test_file = future.result()
                 if success:
-                    result_key = f"{action_type}d"  # create -> created, augment -> augmented
+                    # Map action_type to result key
+                    if action_type == "create":
+                        result_key = "created"
+                        action_past = "created"
+                    elif action_type == "augment":
+                        result_key = "augmented"
+                        action_past = "augmented"
+                    else:
+                        result_key = "failed"
+                        action_past = action_type
+
                     results[result_key].append(test_file)
-                    logger.info(f"  ✓ {action_type}d {test_file}")
+                    logger.info(f"  ✓ {action_past} {test_file}")
                 else:
                     results["failed"].append(test_file)
                     logger.error(f"  ✗ Failed to {action_type} {test_file}")
