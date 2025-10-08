@@ -21,18 +21,33 @@ So that I can securely access course materials without managing passwords
 ### 2. Registration Page
 7. **Verify** URL changes to `/register`
 8. Take a screenshot of the registration page
-9. **Verify** registration form elements are present:
+9. **Verify** registration form sections are present:
    - Email input field
-   - Experience level dropdown
-   - Background textarea
-   - Goals textarea
+   - Name input field
+   - Employment Information section
+   - Primary Use Context section
+   - AI Experience section
+   - Goals & Applications section
+   - Challenges section
+   - Learning Preference section
+   - Additional Comments textarea
    - Create Account button
 
 10. Fill in the registration form:
     - Email: `test-user-${timestamp}@example.com` (use current timestamp to ensure uniqueness)
-    - Experience Level: Select "Beginner"
-    - Background: "Software engineer learning AI"
-    - Goals: "Build AI-powered applications"
+    - Name: "Test User"
+    - Employment Status: Select "Employed full-time"
+    - Industry: "Technology"
+    - Role: "Software Engineer"
+    - Primary Use Context: Select "Work/Professional tasks"
+    - Tried AI Before: Select "Yes"
+    - AI Tools Used: Check "ChatGPT"
+    - Usage Frequency: Select "Daily"
+    - Comfort Level: Select level 3 (middle of scale)
+    - Goals: Check "Coding/technical tasks"
+    - Challenges: Check "Writing effective prompts"
+    - Learning Preference: Select "Hands-on practice with examples"
+    - Additional Comments: "Looking forward to learning more about AI"
 
 11. Take a screenshot of the filled form
 12. Click "Create Account" button

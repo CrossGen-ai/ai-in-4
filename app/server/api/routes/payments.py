@@ -16,7 +16,6 @@ from models.schemas import (
 )
 from api.routes.users import get_current_user
 from services import entitlement_service, referral_service
-from core.config import settings
 
 logger = logging.getLogger(__name__)
 

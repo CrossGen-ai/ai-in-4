@@ -9,14 +9,12 @@ Tests cover end-to-end payment flows including:
 import pytest
 from unittest.mock import patch, AsyncMock
 from datetime import datetime, UTC
-import json
 
 from main import app
 from db.models import (
     User,
     StripeProduct,
     StripePrice,
-    Entitlement,
     Referral,
 )
 from api.routes.users import get_current_user

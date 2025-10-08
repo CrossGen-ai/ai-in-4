@@ -4,7 +4,7 @@ from unittest.mock import patch, AsyncMock, ANY
 from datetime import datetime, UTC
 
 from main import app
-from db.models import StripeProduct, StripePrice, Entitlement, Referral, User
+from db.models import StripeProduct, StripePrice, Entitlement, User
 from api.routes.users import get_current_user
 
 
@@ -573,7 +573,7 @@ def test_webhook_idempotency_for_duplicate_events(client):
     """Test POST /api/payments/webhook handles duplicate webhook events (idempotency)."""
     # This tests that the webhook can be called multiple times with the same event
     # Note: Actual idempotency would require checking if payment_intent_id already processed
-    with patch("api.routes.payments.entitlement_service.grant_entitlement", new_callable=AsyncMock) as mock_grant:
+    with patch("api.routes.payments.entitlement_service.grant_entitlement", new_callable=AsyncMock):
         webhook_payload = {
             "type": "payment_intent.succeeded",
             "data": {

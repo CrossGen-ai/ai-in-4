@@ -69,7 +69,12 @@ async def validate_magic_link(token: str, db: AsyncSession) -> tuple[User | None
             return None, None
 
         # Check if expired
-        if datetime.now(UTC) > magic_link.expires_at:
+        # Ensure expires_at is timezone-aware (SQLite may return naive datetime)
+        expires_at = magic_link.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=UTC)
+
+        if datetime.now(UTC) > expires_at:
             logger.warning(f"Magic link expired for user {magic_link.user_id}")
             return None, None
 

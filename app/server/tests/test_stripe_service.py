@@ -2,8 +2,8 @@
 import pytest
 import hashlib
 import hmac
-from unittest.mock import patch, AsyncMock, MagicMock
-from typing import Dict, Any
+from unittest.mock import patch
+from typing import Dict
 
 from services.stripe_service import StripeService, stripe_service
 from core.config import settings

@@ -44,8 +44,8 @@ class UserCreate(BaseModel):
     # AI Experience
     tried_ai_before: bool
     ai_tools_used: Optional[List[str]] = None
-    usage_frequency: Optional[str] = Field(None, max_length=50)
-    comfort_level: Optional[int] = Field(None, ge=1, le=5)
+    usage_frequency: str = Field(..., max_length=50)
+    comfort_level: int = Field(..., ge=1, le=5)
 
     # Goals & Applications
     goals: List[str] = Field(..., min_length=3, max_length=3)
@@ -81,23 +81,6 @@ class UserCreate(BaseModel):
             pass
         return v
 
-    @field_validator('usage_frequency')
-    @classmethod
-    def validate_usage_frequency(cls, v, info):
-        # If tried_ai_before is True, usage_frequency is required
-        tried_ai_before = info.data.get('tried_ai_before')
-        if tried_ai_before is True and not v:
-            raise ValueError('usage_frequency is required when tried_ai_before is True')
-        return v
-
-    @field_validator('comfort_level')
-    @classmethod
-    def validate_comfort_level(cls, v, info):
-        # If tried_ai_before is True, comfort_level is required
-        tried_ai_before = info.data.get('tried_ai_before')
-        if tried_ai_before is True and v is None:
-            raise ValueError('comfort_level is required when tried_ai_before is True')
-        return v
 
 
 class UserResponse(BaseModel):

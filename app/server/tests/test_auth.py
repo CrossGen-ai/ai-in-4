@@ -88,7 +88,6 @@ async def test_magic_link_request_for_existing_user(client, test_db):
     from services.user_service import create_user
     from models.schemas import UserCreate
 
-    from models.schemas import UserCreate
 
     user_data = UserCreate(
         email="existing@example.com",

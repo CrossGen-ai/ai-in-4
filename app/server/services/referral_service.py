@@ -69,7 +69,7 @@ async def validate_referral_code(code: str, db: AsyncSession) -> Optional[User]:
         User object if valid, None otherwise
     """
     result = await db.execute(
-        select(User).where(User.referral_code == code, User.is_active == True)
+        select(User).where(User.referral_code == code, User.is_active)
     )
     return result.scalar_one_or_none()
 

@@ -1,7 +1,6 @@
 """Tests for referral tracking and credit management."""
 import pytest
 from datetime import datetime, UTC
-from sqlalchemy import select
 
 from services.referral_service import (
     generate_referral_code,

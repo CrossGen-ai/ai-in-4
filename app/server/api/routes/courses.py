@@ -6,7 +6,7 @@ from db.models import Course, User, StripeProduct, StripePrice
 from models.schemas import CourseResponse, StripeProductResponse, CourseAccessResponse
 from api.routes.users import get_current_user
 from services import entitlement_service
-from typing import List, Optional
+from typing import List
 
 router = APIRouter()
 
@@ -28,7 +28,7 @@ async def list_course_products(db: AsyncSession = Depends(get_db)):
         List of products with prices from Stripe
     """
     result = await db.execute(
-        select(StripeProduct).where(StripeProduct.active == True)
+        select(StripeProduct).where(StripeProduct.active)
     )
     products = result.scalars().all()
 
@@ -40,7 +40,7 @@ async def list_course_products(db: AsyncSession = Depends(get_db)):
             select(StripePrice)
             .where(
                 StripePrice.product_id == product.id,
-                StripePrice.active == True
+                StripePrice.active
             )
             .limit(1)
         )

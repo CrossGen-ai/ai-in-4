@@ -1,7 +1,6 @@
 """Tests for course-related API endpoints."""
 import pytest
 from unittest.mock import AsyncMock, patch
-from datetime import datetime, UTC
 
 
 # Fixtures for authenticated clients with different entitlement states

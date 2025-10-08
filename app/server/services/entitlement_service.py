@@ -1,8 +1,8 @@
 """Entitlement service for managing user course access."""
-from typing import List, Optional
+from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from db.models import Entitlement, User, StripePrice, StripeProduct
+from db.models import Entitlement, StripePrice
 
 
 async def grant_entitlement(

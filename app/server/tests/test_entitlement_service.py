@@ -343,13 +343,13 @@ async def test_multiple_entitlements_for_same_user(
 ):
     """Test user can have multiple entitlements for different prices."""
     # Arrange & Act - create entitlements for different prices
-    entitlement_1 = await grant_entitlement(
+    await grant_entitlement(
         user_id=test_user.id,
         price_id=test_stripe_price.id,
         payment_intent_id="pi_multi_price1",
         db=test_db,
     )
-    entitlement_2 = await grant_entitlement(
+    await grant_entitlement(
         user_id=test_user.id,
         price_id=second_test_stripe_price.id,
         payment_intent_id="pi_multi_price2",
