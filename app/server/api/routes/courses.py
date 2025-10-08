@@ -2,9 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from db.database import get_db
-from db.models import Course
-from models.schemas import CourseResponse
-from typing import List
+from db.models import Course, User, StripeProduct, StripePrice
+from models.schemas import CourseResponse, StripeProductResponse, CourseAccessResponse
+from api.routes.users import get_current_user
+from services import entitlement_service
+from typing import List, Optional
 
 router = APIRouter()
 
@@ -15,6 +17,48 @@ async def list_courses(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Course))
     courses = result.scalars().all()
     return [CourseResponse.model_validate(course) for course in courses]
+
+
+@router.get("/products", response_model=List[StripeProductResponse])
+async def list_course_products(db: AsyncSession = Depends(get_db)):
+    """
+    Get list of all course products with pricing.
+
+    Returns:
+        List of products with prices from Stripe
+    """
+    result = await db.execute(
+        select(StripeProduct).where(StripeProduct.active == True)
+    )
+    products = result.scalars().all()
+
+    # Enrich with price information
+    response = []
+    for product in products:
+        # Get first active price for this product
+        price_result = await db.execute(
+            select(StripePrice)
+            .where(
+                StripePrice.product_id == product.id,
+                StripePrice.active == True
+            )
+            .limit(1)
+        )
+        price = price_result.scalar_one_or_none()
+
+        response.append(
+            StripeProductResponse(
+                id=product.id,
+                name=product.name,
+                description=product.description,
+                category=product.category,
+                price=price.amount if price else None,
+                price_id=price.id if price else None,
+                currency=price.currency if price else "usd",
+            )
+        )
+
+    return response
 
 
 @router.get("/{course_id}", response_model=CourseResponse)
@@ -30,3 +74,31 @@ async def get_course(course_id: int, db: AsyncSession = Depends(get_db)):
         )
 
     return CourseResponse.model_validate(course)
+
+
+@router.get("/{course_id}/check-access", response_model=CourseAccessResponse)
+async def check_course_access(
+    course_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Check if user has access to a course.
+
+    Args:
+        course_id: Course ID (maps to product ID)
+        current_user: Authenticated user
+        db: Database session
+
+    Returns:
+        Access status
+    """
+    # For now, course_id maps to product_id
+    # In production, you'd have a proper mapping table
+    product_id = f"prod_{course_id}"
+
+    has_access = await entitlement_service.check_product_access(
+        current_user.id, product_id, db
+    )
+
+    return CourseAccessResponse(has_access=has_access)

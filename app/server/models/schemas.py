@@ -134,3 +134,54 @@ class CourseResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# Payment/Stripe Schemas
+class CheckoutSessionRequest(BaseModel):
+    price_id: str
+    referrer_code: Optional[str] = None
+
+
+class CheckoutSessionResponse(BaseModel):
+    checkout_url: str
+    session_id: str
+
+
+class WebhookEvent(BaseModel):
+    type: str
+    data: dict
+
+
+class EntitlementResponse(BaseModel):
+    price_id: str
+    product_id: str
+    product_name: str
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ReferralResponse(BaseModel):
+    referral_code: str
+    total_referrals: int
+    pending_referrals: int
+    total_credits: int
+
+
+class StripeProductResponse(BaseModel):
+    id: str
+    name: str
+    description: Optional[str] = None
+    category: str
+    price: Optional[int] = None
+    price_id: Optional[str] = None
+    currency: str = "usd"
+
+    class Config:
+        from_attributes = True
+
+
+class CourseAccessResponse(BaseModel):
+    has_access: bool

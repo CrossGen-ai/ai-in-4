@@ -7,7 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from db.database import engine, Base
-from db.models import User, UserExperience, MagicLink, Course  # noqa: F401
+from db.models import User, UserExperience, MagicLink, Course, Entitlement, Referral, StripeProduct, StripePrice  # noqa: F401
 
 
 async def init_db():

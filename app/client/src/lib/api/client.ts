@@ -122,5 +122,45 @@ export const api = {
     async getCourse(id: number) {
       return apiRequest<Course>(`/courses/${id}`);
     },
+
+    async listProducts() {
+      return apiRequest<any[]>('/courses/products');
+    },
+
+    async checkAccess(courseId: number) {
+      return apiRequest<{ has_access: boolean }>(`/courses/${courseId}/check-access`, {
+        headers: withAuth(),
+      });
+    },
+  },
+
+  // Payments
+  payments: {
+    async createCheckoutSession(priceId: string, referrerCode?: string) {
+      return apiRequest<{ checkout_url: string; session_id: string }>('/payments/checkout', {
+        method: 'POST',
+        headers: withAuth(),
+        body: JSON.stringify({ price_id: priceId, referrer_code: referrerCode }),
+      });
+    },
+
+    async getUserEntitlements() {
+      return apiRequest<any[]>('/payments/entitlements', {
+        headers: withAuth(),
+      });
+    },
+
+    async getReferralStats() {
+      return apiRequest<any>('/payments/referrals', {
+        headers: withAuth(),
+      });
+    },
+
+    async syncProducts() {
+      return apiRequest<{ count: number }>('/payments/sync-products', {
+        method: 'POST',
+        headers: withAuth(),
+      });
+    },
   },
 };

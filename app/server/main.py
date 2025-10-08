@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from core.config import settings
-from api.routes import health, auth, users, courses
+from api.routes import health, auth, users, courses, payments
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -24,3 +24,4 @@ app.include_router(health.router, prefix="/api", tags=["health"])
 app.include_router(auth.router, prefix="/api/auth", tags=["authentication"])
 app.include_router(users.router, prefix="/api/users", tags=["users"])
 app.include_router(courses.router, prefix="/api/courses", tags=["courses"])
+app.include_router(payments.router, prefix="/api/payments", tags=["payments"])

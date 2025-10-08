@@ -7,6 +7,9 @@ import { ThankYou } from './pages/ThankYou';
 import { Login } from './pages/Login';
 import { DevLogin } from './pages/DevLogin';
 import { CourseLanding } from './pages/CourseLanding';
+import Dashboard from './pages/Dashboard';
+import CheckoutSuccess from './pages/CheckoutSuccess';
+import CheckoutCancel from './pages/CheckoutCancel';
 
 function App() {
   return (
@@ -26,6 +29,16 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/checkout/success" element={<CheckoutSuccess />} />
+          <Route path="/checkout/cancel" element={<CheckoutCancel />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>
