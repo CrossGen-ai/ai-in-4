@@ -146,6 +146,8 @@ async def apply_referral_credit(
     """
     Apply referral credit to referrer and mark referral as credited.
 
+    Idempotent: If referral is already credited, no action is taken.
+
     Args:
         referrer_id: User ID to credit
         amount: Credit amount in cents
@@ -153,6 +155,20 @@ async def apply_referral_credit(
         db: AsyncSession
 
     """
+    # Check if referral is already credited (idempotency)
+    ref_result = await db.execute(
+        select(Referral).where(Referral.id == referral_id)
+    )
+    referral = ref_result.scalar_one_or_none()
+
+    if not referral:
+        return
+
+    # If already credited, don't apply credit again
+    if referral.status == "credited":
+        return
+
+    # Apply credit to referrer
     result = await db.execute(select(User).where(User.id == referrer_id))
     user = result.scalar_one_or_none()
 
@@ -160,12 +176,7 @@ async def apply_referral_credit(
         user.referral_credits = (user.referral_credits or 0) + amount
 
     # Mark referral as credited
-    ref_result = await db.execute(
-        select(Referral).where(Referral.id == referral_id)
-    )
-    referral = ref_result.scalar_one_or_none()
-    if referral:
-        referral.status = "credited"
+    referral.status = "credited"
 
     await db.commit()
 

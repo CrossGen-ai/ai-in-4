@@ -1240,24 +1240,25 @@ def validate_and_fix_created_tests(
         elif "app/client" in test_file:
             cwd = "app/client"
             relative_path = test_file.replace("app/client/", "")
-            # Use vitest for frontend TypeScript tests
-            test_cmd = ["yarn", "test", relative_path]
+            # Use vitest run for single-run mode (not watch)
+            test_cmd = ["yarn", "vitest", "run", relative_path]
         else:
             # Fallback to current directory
             cwd = "."
             relative_path = test_file
             # Try to determine test runner based on file extension
             if test_file.endswith((".ts", ".tsx")):
-                test_cmd = ["yarn", "test", relative_path]
+                test_cmd = ["yarn", "vitest", "run", relative_path]
             else:
                 test_cmd = ["uv", "run", "pytest", relative_path, "-v", "--tb=short"]
 
-        # Run appropriate test command
+        # Run appropriate test command with 5 minute timeout
         result = subprocess.run(
             test_cmd,
             capture_output=True,
             text=True,
             cwd=cwd,
+            timeout=300,  # 5 minute timeout
         )
 
         if result.returncode == 0:
@@ -1334,23 +1335,24 @@ def attempt_test_fix(
         elif "app/client" in test_file:
             cwd = "app/client"
             relative_path = test_file.replace("app/client/", "")
-            # Use vitest for frontend TypeScript tests
-            test_cmd = ["yarn", "test", relative_path]
+            # Use vitest run for single-run mode (not watch)
+            test_cmd = ["yarn", "vitest", "run", relative_path]
         else:
             cwd = "."
             relative_path = test_file
             # Try to determine test runner based on file extension
             if test_file.endswith((".ts", ".tsx")):
-                test_cmd = ["yarn", "test", relative_path]
+                test_cmd = ["yarn", "vitest", "run", relative_path]
             else:
                 test_cmd = ["uv", "run", "pytest", relative_path, "-v"]
 
-        # Re-run appropriate test command
+        # Re-run appropriate test command with 5 minute timeout
         result = subprocess.run(
             test_cmd,
             capture_output=True,
             text=True,
             cwd=cwd,
+            timeout=300,  # 5 minute timeout
         )
 
         if result.returncode == 0:

@@ -1073,7 +1073,7 @@ def validate_and_fix_created_tests(
 
         # Determine test command based on file type
         if test_file.endswith((".ts", ".tsx")):
-            # Frontend TypeScript test - use vitest
+            # Frontend TypeScript test - use vitest run (not watch)
             # For vitest, we need to be in the client directory
             if "app/client" in test_file:
                 test_cwd = os.path.join(working_dir, "app/client") if working_dir else "app/client"
@@ -1081,7 +1081,7 @@ def validate_and_fix_created_tests(
             else:
                 test_cwd = working_dir
                 relative_test_path = test_file
-            test_cmd = ["yarn", "test", relative_test_path]
+            test_cmd = ["yarn", "vitest", "run", relative_test_path]
         else:
             # Backend Python test - use pytest
             test_cwd = working_dir
@@ -1092,6 +1092,7 @@ def validate_and_fix_created_tests(
             capture_output=True,
             text=True,
             cwd=test_cwd,
+            timeout=300,  # 5 minute timeout
         )
 
         if result.returncode == 0:
@@ -1163,14 +1164,14 @@ def attempt_test_fix(
 
         # Determine test command based on file type
         if test_file.endswith((".ts", ".tsx")):
-            # Frontend TypeScript test - use vitest
+            # Frontend TypeScript test - use vitest run (not watch)
             if "app/client" in test_file:
                 test_cwd = os.path.join(working_dir, "app/client") if working_dir else "app/client"
                 relative_test_path = test_file.replace("app/client/", "")
             else:
                 test_cwd = working_dir
                 relative_test_path = test_file
-            test_cmd = ["yarn", "test", relative_test_path]
+            test_cmd = ["yarn", "vitest", "run", relative_test_path]
         else:
             # Backend Python test - use pytest
             test_cwd = working_dir
@@ -1181,6 +1182,7 @@ def attempt_test_fix(
             capture_output=True,
             text=True,
             cwd=test_cwd,
+            timeout=300,  # 5 minute timeout
         )
 
         if result.returncode == 0:
