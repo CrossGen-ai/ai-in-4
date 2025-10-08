@@ -30,6 +30,11 @@ Run `git checkout main` to switch to the main branch
 Run `git pull` to pull the latest changes from the main branch
 Run `git checkout -b <branch_name>` to create and switch to the new branch
 
+**Initialize Database for New Branch:**
+- Run `rm -f app/server/app.db` to remove old database
+- Run `cd app/server && python3 -m db.init_db` to create fresh schema
+- Run `cd app/server && python3 -m db.seed_db` to populate seed data
+
 ## Report
 
 After generating the branch name:
