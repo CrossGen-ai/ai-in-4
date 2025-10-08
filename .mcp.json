@@ -9,6 +9,10 @@
         "--config",
         "./playwright-mcp-config.json"
       ]
+    },
+    "stripe": {
+      "type": "http",
+      "url": "https://mcp.stripe.com/"
     }
   }
 }
