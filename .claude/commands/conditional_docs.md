@@ -112,3 +112,12 @@ This prompt helps you determine what documentation you should read based on the 
     - When Pydantic validation fails with mock objects
     - When seeing "Input should be a valid string" errors with AsyncMock
     - When response model validation fails in tests
+
+- app_docs/testing/stack_guides/stripe_webhook_tests.md
+  - Conditions:
+    - When testing Stripe webhook handlers or payment integrations
+    - When running payment_intent webhook tests
+    - When seeing "webhook signature verification failed" errors
+    - When testing entitlement granting after payment
+    - When testing referral credit application
+    - When working with test_payment_integration.py
