@@ -119,6 +119,12 @@ export const api = {
       return apiRequest<Course[]>('/courses/');
     },
 
+    async listCoursesWithAccess() {
+      return apiRequest<Course[]>('/courses/with-access', {
+        headers: withAuth(),
+      });
+    },
+
     async getCourse(id: number) {
       return apiRequest<Course>(`/courses/${id}`);
     },
@@ -136,11 +142,11 @@ export const api = {
 
   // Payments
   payments: {
-    async createCheckoutSession(priceId: string, referrerCode?: string) {
+    async createCheckoutSession(productId: string, referrerCode?: string) {
       return apiRequest<{ checkout_url: string; session_id: string }>('/payments/checkout', {
         method: 'POST',
         headers: withAuth(),
-        body: JSON.stringify({ price_id: priceId, referrer_code: referrerCode }),
+        body: JSON.stringify({ product_id: productId, referrer_code: referrerCode }),
       });
     },
 

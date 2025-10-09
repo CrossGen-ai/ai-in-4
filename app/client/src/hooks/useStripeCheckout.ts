@@ -5,12 +5,12 @@ export function useStripeCheckout() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const initiateCheckout = async (priceId: string, referrerCode?: string) => {
+  const initiateCheckout = async (productId: string, referrerCode?: string) => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await api.payments.createCheckoutSession(priceId, referrerCode);
+      const response = await api.payments.createCheckoutSession(productId, referrerCode);
 
       // Redirect to Stripe checkout
       if (response.checkout_url) {

@@ -29,10 +29,11 @@ export function CourseUnlockModal({ isOpen, onClose, course }: CourseUnlockModal
     : 'Price not available';
 
   const handleUnlockAccess = () => {
-    if (course.price_id) {
-      initiateCheckout(course.price_id);
+    const productId = typeof course.id === 'string' ? course.id : course.id.toString();
+    if (productId) {
+      initiateCheckout(productId);
     } else {
-      alert('Unable to initiate checkout. Price information not available.');
+      alert('Unable to initiate checkout. Product information not available.');
     }
   };
 
