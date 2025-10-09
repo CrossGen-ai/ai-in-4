@@ -1,16 +1,17 @@
 """Tests for payment routes using TestClient and mocked services."""
 import pytest
-from unittest.mock import patch, AsyncMock, ANY
+from unittest.mock import patch, AsyncMock, ANY, MagicMock
 from datetime import datetime, UTC
+from sqlalchemy import select
 
 from main import app
-from db.models import StripeProduct, StripePrice, Entitlement, User
+from db.models import StripeProduct, StripePrice, Entitlement, User, UserExperience
 from api.routes.users import get_current_user
 
 
 # Valid test data matching the schema
 VALID_CHECKOUT_REQUEST = {
-    "price_id": "price_test_123",
+    "product_id": "prod_test_123",
     "referrer_code": None,
 }
 
@@ -34,8 +35,29 @@ def override_get_current_user(test_user):
 
 @pytest.mark.asyncio
 async def test_checkout_creates_session_with_valid_auth(client, override_get_current_user, test_db):
-    """Test POST /api/payments/checkout creates checkout session with valid auth."""
-    # Create test product and price
+    """Test POST /api/payments/checkout creates checkout session with employment-based pricing."""
+    # Get or create user experience with employment status
+    experience_result = await test_db.execute(
+        select(UserExperience).where(UserExperience.user_id == override_get_current_user.id)
+    )
+    user_experience = experience_result.scalar_one_or_none()
+
+    if user_experience:
+        # Update existing
+        user_experience.employment_status = "Employed full-time"
+        user_experience.name = "Test User"
+    else:
+        # Create new
+        user_experience = UserExperience(
+            user_id=override_get_current_user.id,
+            employment_status="Employed full-time",
+            name="Test User",
+        )
+        test_db.add(user_experience)
+
+    await test_db.flush()
+
+    # Create test product and price with employment eligibility
     product = StripeProduct(
         id="prod_test_123",
         name="Test Product",
@@ -52,33 +74,140 @@ async def test_checkout_creates_session_with_valid_auth(client, override_get_cur
         amount=1000,
         currency="usd",
         active=True,
+        stripe_metadata={
+            "price_name": "Test Price - Employed",
+            "eligible_employment_statuses": ["Employed full-time", "Employed part-time"]
+        }
     )
     test_db.add(price)
     await test_db.commit()
 
-    response = client.post(
-        "/api/payments/checkout",
-        json=VALID_CHECKOUT_REQUEST,
-    )
+    # Mock Stripe checkout session creation
+    mock_session = MagicMock()
+    mock_session.id = "cs_test_mock_123"
+    mock_session.url = "https://checkout.stripe.com/test/cs_test_mock_123"
 
-    assert response.status_code == 200
-    data = response.json()
-    assert "checkout_url" in data
-    assert "session_id" in data
-    assert data["session_id"].startswith("cs_test_")
+    with patch("api.routes.payments.stripe.checkout.Session.create", return_value=mock_session) as mock_create:
+        response = client.post(
+            "/api/payments/checkout",
+            json=VALID_CHECKOUT_REQUEST,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "checkout_url" in data
+        assert "session_id" in data
+        assert data["session_id"] == "cs_test_mock_123"
+        assert data["checkout_url"] == "https://checkout.stripe.com/test/cs_test_mock_123"
+
+        # Verify Stripe was called with correct parameters
+        mock_create.assert_called_once()
+        call_args = mock_create.call_args
+        assert call_args.kwargs["line_items"][0]["price"] == "price_test_123"
+        assert call_args.kwargs["metadata"]["price_id"] == "price_test_123"
 
 
 @pytest.mark.asyncio
-async def test_checkout_validates_price_exists(client, override_get_current_user):
-    """Test POST /api/payments/checkout validates price exists."""
-    # Request with non-existent price
+async def test_checkout_validates_product_exists(client, override_get_current_user):
+    """Test POST /api/payments/checkout validates product exists."""
+    # Request with non-existent product
     response = client.post(
         "/api/payments/checkout",
-        json={"price_id": "price_nonexistent", "referrer_code": None},
+        json={"product_id": "prod_nonexistent", "referrer_code": None},
     )
 
     assert response.status_code == 404
-    assert "Price not found" in response.json()["detail"]
+    assert "Product not found" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_checkout_selects_price_based_on_employment_status(client, override_get_current_user, test_db):
+    """Test POST /api/payments/checkout selects correct price based on employment status."""
+    # Create product with two prices: employed and student rates
+    product = StripeProduct(
+        id="prod_employment_test",
+        name="Test Course",
+        category="curriculum",
+        active=True,
+    )
+    test_db.add(product)
+    await test_db.flush()
+
+    employed_price = StripePrice(
+        id="price_employed",
+        product_id=product.id,
+        amount=49700,  # $497
+        currency="usd",
+        active=True,
+        stripe_metadata={
+            "price_name": "Employed Rate",
+            "eligible_employment_statuses": ["Employed full-time", "Employed part-time", "Self-employed/Freelancer"]
+        }
+    )
+    student_price = StripePrice(
+        id="price_student",
+        product_id=product.id,
+        amount=9700,  # $97
+        currency="usd",
+        active=True,
+        stripe_metadata={
+            "price_name": "Student Rate",
+            "eligible_employment_statuses": ["Student", "Between jobs", "Other"]
+        }
+    )
+    test_db.add(employed_price)
+    test_db.add(student_price)
+    await test_db.commit()
+
+    # Test 1: User with "Employed full-time" status should get employed price
+    experience_result = await test_db.execute(
+        select(UserExperience).where(UserExperience.user_id == override_get_current_user.id)
+    )
+    user_experience = experience_result.scalar_one_or_none()
+    if user_experience:
+        user_experience.employment_status = "Employed full-time"
+    else:
+        user_experience = UserExperience(
+            user_id=override_get_current_user.id,
+            employment_status="Employed full-time",
+            name="Test User",
+        )
+        test_db.add(user_experience)
+    await test_db.commit()
+
+    mock_session_employed = MagicMock()
+    mock_session_employed.id = "cs_employed_123"
+    mock_session_employed.url = "https://checkout.stripe.com/employed"
+
+    with patch("api.routes.payments.stripe.checkout.Session.create", return_value=mock_session_employed) as mock_create:
+        response = client.post(
+            "/api/payments/checkout",
+            json={"product_id": "prod_employment_test", "referrer_code": None},
+        )
+
+        assert response.status_code == 200
+        # Verify employed price was selected
+        call_args = mock_create.call_args
+        assert call_args.kwargs["line_items"][0]["price"] == "price_employed"
+
+    # Test 2: Change to "Student" status should get student price
+    user_experience.employment_status = "Student"
+    await test_db.commit()
+
+    mock_session_student = MagicMock()
+    mock_session_student.id = "cs_student_123"
+    mock_session_student.url = "https://checkout.stripe.com/student"
+
+    with patch("api.routes.payments.stripe.checkout.Session.create", return_value=mock_session_student) as mock_create:
+        response = client.post(
+            "/api/payments/checkout",
+            json={"product_id": "prod_employment_test", "referrer_code": None},
+        )
+
+        assert response.status_code == 200
+        # Verify student price was selected
+        call_args = mock_create.call_args
+        assert call_args.kwargs["line_items"][0]["price"] == "price_student"
 
 
 @pytest.mark.asyncio

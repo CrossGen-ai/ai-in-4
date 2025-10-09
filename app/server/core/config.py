@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
 
     # Database
-    DATABASE_URL: str = "sqlite+aiosqlite:///./app.db"
+    DATABASE_URL: str = "sqlite+aiosqlite:///./db/database.db"
 
     # Magic Link Authentication
     MAGIC_LINK_SECRET: str = "your-secret-key-change-in-production"

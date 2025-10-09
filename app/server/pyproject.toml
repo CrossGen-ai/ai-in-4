@@ -16,6 +16,7 @@ dependencies = [
     "alembic>=1.16.5",
     "itsdangerous>=2.2.0",
     "greenlet>=3.2.4",
+    "stripe>=11.0.0",
 ]
 
 [project.optional-dependencies]

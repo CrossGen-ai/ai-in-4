@@ -121,7 +121,7 @@ class CourseResponse(BaseModel):
 
 # Payment/Stripe Schemas
 class CheckoutSessionRequest(BaseModel):
-    price_id: str
+    product_id: str  # Product ID - server will select appropriate price based on employment status
     referrer_code: Optional[str] = None
 
 

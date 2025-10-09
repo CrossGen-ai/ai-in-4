@@ -5,7 +5,9 @@ from sqlalchemy import select
 from typing import List
 import json
 import logging
+import stripe
 
+from core.config import settings
 from db.database import get_db
 from db.models import User, StripeProduct, StripePrice
 from models.schemas import (
@@ -16,6 +18,9 @@ from models.schemas import (
 )
 from api.routes.users import get_current_user
 from services import entitlement_service, referral_service
+
+# Configure Stripe
+stripe.api_key = settings.STRIPE_SECRET_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +34,10 @@ async def create_checkout_session(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Create Stripe checkout session.
+    Create Stripe checkout session with employment-based pricing.
 
     Args:
-        request: Checkout request with price_id and optional referrer_code
+        request: Checkout request with product_id and optional referrer_code
         current_user: Authenticated user
         db: Database session
 
@@ -40,18 +45,62 @@ async def create_checkout_session(
         CheckoutSessionResponse with checkout URL and session ID
 
     Note:
-        This endpoint creates a checkout session via Stripe MCP.
-        The actual Stripe API call needs to be made using MCP tools.
+        This endpoint automatically selects the appropriate price based on the user's
+        employment status stored in their UserExperience profile.
     """
-    # Validate price exists
-    price_result = await db.execute(
-        select(StripePrice).where(StripePrice.id == request.price_id)
+    from db.models import UserExperience
+
+    # Validate product exists
+    product_result = await db.execute(
+        select(StripeProduct).where(StripeProduct.id == request.product_id)
     )
-    price = price_result.scalar_one_or_none()
-    if not price:
+    product = product_result.scalar_one_or_none()
+    if not product:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Price not found"
+            detail="Product not found"
+        )
+
+    # Get user's employment status
+    experience_result = await db.execute(
+        select(UserExperience).where(UserExperience.user_id == current_user.id)
+    )
+    experience = experience_result.scalar_one_or_none()
+    if not experience or not experience.employment_status:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User employment status not found. Please complete your profile."
+        )
+
+    employment_status = experience.employment_status
+
+    # Get all active prices for this product
+    prices_result = await db.execute(
+        select(StripePrice)
+        .where(StripePrice.product_id == request.product_id)
+        .where(StripePrice.active == True)
+    )
+    prices = prices_result.scalars().all()
+
+    if not prices:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No active prices found for this product"
+        )
+
+    # Select price based on employment eligibility
+    selected_price = None
+    for price in prices:
+        if price.stripe_metadata and "eligible_employment_statuses" in price.stripe_metadata:
+            eligible_statuses = price.stripe_metadata["eligible_employment_statuses"]
+            if employment_status in eligible_statuses:
+                selected_price = price
+                break
+
+    if not selected_price:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"No price available for employment status: {employment_status}"
         )
 
     # Validate referrer code if provided
@@ -77,27 +126,45 @@ async def create_checkout_session(
     metadata = {
         "user_id": str(current_user.id),
         "user_email": current_user.email,
-        "price_id": request.price_id,
+        "price_id": selected_price.id,
     }
     if referrer_user:
         metadata["referrer_id"] = str(referrer_user.id)
         metadata["referrer_code"] = request.referrer_code
 
-    # Note: Actual Stripe checkout session creation would be done via MCP
-    # For now, return a placeholder that routes can be tested
-    # In production, this would call mcp__stripe__create_payment_link or similar
+    # Create Stripe Checkout Session
+    try:
+        checkout_session = stripe.checkout.Session.create(
+            customer_email=current_user.email,
+            payment_method_types=["card"],
+            line_items=[
+                {
+                    "price": selected_price.id,
+                    "quantity": 1,
+                }
+            ],
+            mode="payment",
+            success_url=f"{settings.FRONTEND_URL}/purchase/success?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{settings.FRONTEND_URL}/purchase/cancelled",
+            metadata=metadata,
+        )
 
-    # Return placeholder response
-    # TODO: Replace with actual MCP call when integrating
-    session_id = f"cs_test_{current_user.id}_{request.price_id}"
-    checkout_url = f"https://checkout.stripe.com/test/{session_id}"
+        logger.info(
+            f"Created Stripe checkout session {checkout_session.id} for user {current_user.id}, "
+            f"product {product.name}, price {selected_price.id} "
+            f"(${selected_price.amount/100:.2f}), employment: {employment_status}"
+        )
 
-    logger.info(f"Created checkout session {session_id} for user {current_user.id}")
-
-    return CheckoutSessionResponse(
-        checkout_url=checkout_url,
-        session_id=session_id,
-    )
+        return CheckoutSessionResponse(
+            checkout_url=checkout_session.url,
+            session_id=checkout_session.id,
+        )
+    except stripe.error.StripeError as e:
+        logger.error(f"Stripe error creating checkout session: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create checkout session: {str(e)}"
+        )
 
 
 @router.post("/webhook", status_code=status.HTTP_200_OK)
