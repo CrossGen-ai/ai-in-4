@@ -4,6 +4,7 @@ import { api } from '../lib/api/client';
 import { useCourseEntitlements } from '../hooks/useCourseEntitlements';
 import { useReferralStats } from '../hooks/useReferralStats';
 import { CourseCard } from '../components/courses/CourseCard';
+import { CourseUnlockModal } from '../components/courses/CourseUnlockModal';
 import { useNavigate } from 'react-router-dom';
 
 export default function Dashboard() {
@@ -14,20 +15,38 @@ export default function Dashboard() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState<any>(null);
 
   useEffect(() => {
-    const fetchProducts = async () => {
+    const fetchCourses = async () => {
       try {
-        const data = await api.courses.listProducts();
-        setProducts(data);
+        // Fetch products with pricing from Stripe
+        const productsData = await api.courses.listProducts();
+
+        // Fetch user's course access status
+        const coursesWithAccess = await api.courses.listCoursesWithAccess();
+
+        // Create a map of course access by matching product names to course titles
+        const accessMap = new Map(
+          coursesWithAccess.map((c: any) => [c.title || c.name, c.has_access])
+        );
+
+        // Merge products with access information
+        const mergedData = productsData.map((product: any) => ({
+          ...product,
+          has_access: accessMap.get(product.name) ?? false,
+        }));
+
+        setProducts(mergedData);
       } catch (error) {
-        console.error('Failed to fetch products:', error);
+        console.error('Failed to fetch courses:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchProducts();
+    fetchCourses();
   }, []);
 
   const handleCopyReferralCode = () => {
@@ -36,6 +55,20 @@ export default function Dashboard() {
       navigator.clipboard.writeText(referralUrl);
       setCopiedCode(true);
       setTimeout(() => setCopiedCode(false), 2000);
+    }
+  };
+
+  const handleCourseClick = (course: any) => {
+    const isFree = course.category === 'free';
+    const hasAccessToCourse = course.has_access ?? false;
+
+    if (isFree || hasAccessToCourse) {
+      // Navigate to course content
+      navigate(`/course/${course.id}`);
+    } else {
+      // Open unlock modal for locked paid courses
+      setSelectedCourse(course);
+      setModalOpen(true);
     }
   };
 
@@ -108,12 +141,12 @@ export default function Dashboard() {
           <div className="mb-8">
             <h2 className="text-2xl font-bold mb-4">Free Courses</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {groupedProducts.free.map((product) => (
+              {groupedProducts.free.map((course) => (
                 <CourseCard
-                  key={product.id}
-                  course={product}
-                  hasAccess={true}
-                  onAccessClick={() => navigate(`/course/${product.id}`)}
+                  key={course.id}
+                  course={course}
+                  hasAccess={course.has_access ?? true}
+                  onAccessClick={() => handleCourseClick(course)}
                 />
               ))}
             </div>
@@ -125,16 +158,12 @@ export default function Dashboard() {
           <div className="mb-8">
             <h2 className="text-2xl font-bold mb-4">Full Curriculum</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {groupedProducts.curriculum.map((product) => (
+              {groupedProducts.curriculum.map((course) => (
                 <CourseCard
-                  key={product.id}
-                  course={product}
-                  hasAccess={product.price_id ? hasAccess(product.price_id) : false}
-                  onAccessClick={() => {
-                    if (product.price_id && hasAccess(product.price_id)) {
-                      navigate(`/course/${product.id}`);
-                    }
-                  }}
+                  key={course.id}
+                  course={course}
+                  hasAccess={course.has_access ?? false}
+                  onAccessClick={() => handleCourseClick(course)}
                 />
               ))}
             </div>
@@ -146,22 +175,30 @@ export default function Dashboard() {
           <div className="mb-8">
             <h2 className="text-2xl font-bold mb-4">Individual Courses</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {groupedProducts.alacarte.map((product) => (
+              {groupedProducts.alacarte.map((course) => (
                 <CourseCard
-                  key={product.id}
-                  course={product}
-                  hasAccess={product.price_id ? hasAccess(product.price_id) : false}
-                  onAccessClick={() => {
-                    if (product.price_id && hasAccess(product.price_id)) {
-                      navigate(`/course/${product.id}`);
-                    }
-                  }}
+                  key={course.id}
+                  course={course}
+                  hasAccess={course.has_access ?? false}
+                  onAccessClick={() => handleCourseClick(course)}
                 />
               ))}
             </div>
           </div>
         )}
       </div>
+
+      {/* Course Unlock Modal */}
+      {selectedCourse && (
+        <CourseUnlockModal
+          isOpen={modalOpen}
+          onClose={() => {
+            setModalOpen(false);
+            setSelectedCourse(null);
+          }}
+          course={selectedCourse}
+        />
+      )}
     </div>
   );
 }
