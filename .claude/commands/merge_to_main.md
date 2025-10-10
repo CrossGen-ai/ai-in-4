@@ -26,7 +26,7 @@ None required - operates on current branch.
 - If merge conflicts occur, stop and report them
 
 **Rebuild Database:**
-- Run `rm -f app/server/app.db` to remove old database
+- Run `rm -f app/server/db/database.db` to remove old database
 - Run `cd app/server && python3 -m db.init_db` to create fresh schema
 - Run `cd app/server && python3 -m db.seed_db` to populate seed data
 

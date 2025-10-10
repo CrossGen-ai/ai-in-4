@@ -112,8 +112,22 @@ class CourseResponse(BaseModel):
     id: int
     title: str
     description: Optional[str] = None
+    category: str  # free, curriculum, alacarte, unique
     schedule: Optional[str] = None
     materials_url: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class CourseWithAccessResponse(BaseModel):
+    id: int
+    title: str
+    description: Optional[str] = None
+    category: str  # free, curriculum, alacarte, unique
+    schedule: Optional[str] = None
+    materials_url: Optional[str] = None
+    has_access: bool  # Whether the current user has access
 
     class Config:
         from_attributes = True

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api/client';
+import { useAuth } from '../context/AuthContext';
 
 // Employment status options
 const EMPLOYMENT_OPTIONS = [
@@ -84,6 +85,7 @@ const LEARNING_PREFERENCE_OPTIONS = [
 
 export function Register() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [formData, setFormData] = useState({
@@ -162,8 +164,13 @@ export function Register() {
         background: formData.background || undefined
       };
 
-      await api.auth.register(payload);
-      navigate('/thank-you');
+      const response = await api.auth.register(payload);
+
+      // Login with the returned token
+      await login(response.access_token);
+
+      // Redirect to dashboard
+      navigate('/dashboard');
     } catch (err: any) {
       setError(err.message || 'Registration failed. Please try again.');
     } finally {

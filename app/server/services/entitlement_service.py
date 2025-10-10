@@ -2,7 +2,7 @@
 from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from db.models import Entitlement, StripePrice
+from db.models import Entitlement, StripePrice, StripeProduct, Course
 
 
 async def grant_entitlement(
@@ -142,3 +142,53 @@ async def check_product_access(
     )
     entitlement = result.scalar_one_or_none()
     return entitlement is not None
+
+
+async def check_course_access(
+    user_id: int, course: Course, db: AsyncSession
+) -> bool:
+    """
+    Check if user has access to a course based on category-based logic.
+
+    Args:
+        user_id: User ID
+        course: Course object
+        db: Database session
+
+    Returns:
+        True if user has access
+
+    Access Logic:
+        - free: Always accessible, no payment required
+        - unique: Must have entitlement to specific stripe_product_id
+        - alacarte: Must have entitlement to specific stripe_product_id (per-course access)
+        - curriculum: Must have entitlement to ANY curriculum product (bundle access)
+    """
+    # 1. Free courses = instant access, no payment
+    if course.category == "free":
+        return True
+
+    # 2. Unique/alacarte courses = check specific product entitlement
+    if course.category in ["unique", "alacarte"]:
+        if not course.stripe_product_id:
+            # Misconfigured course with no product link
+            return False
+        return await check_product_access(user_id, course.stripe_product_id, db)
+
+    # 3. Curriculum = category-based access (any curriculum product unlocks all)
+    if course.category == "curriculum":
+        result = await db.execute(
+            select(Entitlement)
+            .join(StripePrice, Entitlement.stripe_price_id == StripePrice.id)
+            .join(StripeProduct, StripePrice.product_id == StripeProduct.id)
+            .where(
+                Entitlement.user_id == user_id,
+                Entitlement.status == "active",
+                StripeProduct.category == "curriculum",
+            )
+        )
+        entitlement = result.scalar_one_or_none()
+        return entitlement is not None
+
+    # Unknown category - deny access
+    return False

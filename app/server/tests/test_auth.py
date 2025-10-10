@@ -130,8 +130,8 @@ async def test_magic_link_validation_succeeds_with_valid_token(client, test_db, 
     """Test magic link validation succeeds with valid token."""
     # Generate magic link token
     token = serializer.dumps(test_user.email, salt="magic-link")
-    # Use naive datetimes to match SQLite storage (SQLite doesn't preserve timezone)
-    now = datetime.now()  # Naive datetime
+    # Use UTC timezone-aware datetimes (service uses UTC for comparison)
+    now = datetime.now(UTC)
     expires_at = now + timedelta(minutes=15)
 
     magic_link = MagicLink(
@@ -144,16 +144,11 @@ async def test_magic_link_validation_succeeds_with_valid_token(client, test_db, 
     test_db.add(magic_link)
     await test_db.commit()
 
-    # Mock datetime.now in the service to return naive datetime for comparison
-    with patch('services.magic_link.datetime') as mock_datetime:
-        mock_datetime.now.return_value = now
-        mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)
-
-        # Validate token
-        response = client.post(
-            "/api/auth/validate",
-            json={"token": token}
-        )
+    # Validate token
+    response = client.post(
+        "/api/auth/validate",
+        json={"token": token}
+    )
 
     assert response.status_code == 200
     data = response.json()

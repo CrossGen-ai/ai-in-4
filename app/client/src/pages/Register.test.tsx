@@ -11,6 +11,9 @@ vi.mock('../lib/api/client', () => ({
     auth: {
       register: vi.fn(),
     },
+    users: {
+      getCurrentUser: vi.fn(),
+    },
   },
 }));
 
@@ -24,11 +27,27 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
+// Mock AuthContext
+const mockLogin = vi.fn().mockResolvedValue(undefined);
+vi.mock('../context/AuthContext', () => ({
+  AuthProvider: ({ children }: { children: React.ReactNode }) => children,
+  useAuth: () => ({
+    user: null,
+    isAuthenticated: false,
+    loading: false,
+    login: mockLogin,
+    logout: vi.fn(),
+    validateToken: vi.fn(),
+  }),
+}));
+
 describe('Register Component - Extended Form', () => {
   let user: ReturnType<typeof userEvent.setup>;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockLogin.mockClear();
+    mockNavigate.mockClear();
     user = userEvent.setup();
   });
 
@@ -468,7 +487,7 @@ describe('Register Component - Extended Form', () => {
       });
     });
 
-    it('navigates to thank-you page on successful submission', async () => {
+    it('navigates to dashboard on successful submission', async () => {
       renderRegister();
       vi.mocked(api.auth.register).mockResolvedValueOnce({
         user: { id: 1, email: 'test@example.com', created_at: new Date().toISOString() },
@@ -479,7 +498,7 @@ describe('Register Component - Extended Form', () => {
       await user.click(screen.getByRole('button', { name: 'Create Account' }));
 
       await waitFor(() => {
-        expect(mockNavigate).toHaveBeenCalledWith('/thank-you');
+        expect(mockNavigate).toHaveBeenCalledWith('/dashboard');
       });
     });
 

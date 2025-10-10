@@ -37,8 +37,8 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route path="/checkout/success" element={<CheckoutSuccess />} />
-          <Route path="/checkout/cancel" element={<CheckoutCancel />} />
+          <Route path="/purchase/success" element={<CheckoutSuccess />} />
+          <Route path="/purchase/cancelled" element={<CheckoutCancel />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>

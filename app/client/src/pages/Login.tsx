@@ -26,7 +26,7 @@ export function Login() {
     try {
       const success = await validateToken(token);
       if (success) {
-        navigate('/courses');
+        navigate('/dashboard');
       } else {
         setError('Invalid or expired magic link. Please request a new one.');
       }

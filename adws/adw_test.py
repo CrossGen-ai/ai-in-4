@@ -896,7 +896,7 @@ def extract_test_requirements_with_ai(
 
 def categorize_tests_fast(requirements: List[dict], logger: logging.Logger) -> dict:
     """
-    Fast Python categorization of test files.
+    Fast categorization of test files (supports Python and TypeScript).
     Returns: {missing: [], obviously_broken: [], needs_validation: []}
     """
     import re
@@ -919,11 +919,32 @@ def categorize_tests_fast(requirements: List[dict], logger: logging.Logger) -> d
             with open(test_file, "r") as f:
                 content = f.read()
 
-            is_broken = (
-                len(content.strip()) < 10
-                or not re.search(r"def test_\w+", content)
-                or "assert" not in content
-            )
+            # Determine test file type
+            is_python = test_file.endswith('.py')
+            is_typescript = test_file.endswith(('.ts', '.tsx'))
+
+            # Language-specific validation patterns
+            if is_python:
+                is_broken = (
+                    len(content.strip()) < 10
+                    or not re.search(r"def test_\w+", content)
+                    or "assert" not in content
+                )
+                test_count = len(re.findall(r"def test_\w+", content))
+                assertion_count = content.count("assert")
+            elif is_typescript:
+                is_broken = (
+                    len(content.strip()) < 10
+                    or not re.search(r"\b(describe|it|test)\s*\(", content)
+                    or "expect(" not in content
+                )
+                test_count = len(re.findall(r"\b(describe|it|test)\s*\(", content))
+                assertion_count = content.count("expect(")
+            else:
+                # Unknown type - send to AI validation (don't mark as broken)
+                is_broken = False
+                test_count = 0
+                assertion_count = 0
 
             if is_broken:
                 logger.debug(f"  ✗ {test_file} - obviously broken")
@@ -935,8 +956,8 @@ def categorize_tests_fast(requirements: List[dict], logger: logging.Logger) -> d
                 # Quick analysis for AI
                 req["quick_analysis"] = {
                     "has_imports": "import" in content,
-                    "test_count": len(re.findall(r"def test_\w+", content)),
-                    "assertion_count": content.count("assert"),
+                    "test_count": test_count,
+                    "assertion_count": assertion_count,
                 }
                 result["needs_validation"].append(req)
         except Exception as e:

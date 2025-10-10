@@ -45,13 +45,11 @@ Each screenshot should be saved with a descriptive name that reflects what is be
 - They are stored under the specified agent name (e.g., e2e_test_runner_0, e2e_test_resolver_iter1_0)
 - Each test has its own subdirectory based on the test file name (e.g., test_basic_query → basic_query/)
 
-## Report
+## CRITICAL: Output Format
 
-- Exclusively return the JSON output as specified in the test file
-- Capture any unexpected errors
-- IMPORTANT: Ensure all screenshots are saved in the `Screenshot Directory`
+**YOU MUST RETURN ONLY VALID JSON - NO MARKDOWN, NO EXPLANATIONS, NO COMMENTARY**
 
-### Output Format
+Return this exact structure and NOTHING else:
 
 ```json
 {
@@ -62,6 +60,13 @@ Each screenshot should be saved with a descriptive name that reflects what is be
     "<absolute path to codebase>/agents/<adw_id>/<agent_name>/img/<test name>/02_<descriptive name>.png",
     "<absolute path to codebase>/agents/<adw_id>/<agent_name>/img/<test name>/03_<descriptive name>.png"
   ],
-  "error": null
+  "error": "error message if failed, null if passed"
 }
 ```
+
+**RULES:**
+- Do NOT wrap in markdown code blocks
+- Do NOT add explanations before or after
+- Do NOT return markdown headings like "## Test Complete"
+- ONLY return the raw JSON object
+- Validate JSON syntax before returning

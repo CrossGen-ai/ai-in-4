@@ -188,7 +188,7 @@ ANTHROPIC_API_KEY=            # Anthropic API key
 # -----------------------------------------------------------------------------
 # Database Configuration (Example)
 # -----------------------------------------------------------------------------
-# DATABASE_URL=sqlite:///./app.db
+# DATABASE_URL=sqlite:///./db/database.db
 # DATABASE_POOL_SIZE=5
 
 # -----------------------------------------------------------------------------

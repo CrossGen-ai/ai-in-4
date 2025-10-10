@@ -28,50 +28,50 @@ class TestCheckoutSessionRequest:
     """Test CheckoutSessionRequest schema validation."""
 
     def test_valid_checkout_request_with_price_id(self):
-        """Test valid checkout request with only price_id."""
+        """Test valid checkout request with only product_id."""
         # Arrange & Act
-        request = CheckoutSessionRequest(price_id="price_123abc")
+        request = CheckoutSessionRequest(product_id="prod_123abc")
 
         # Assert
-        assert request.price_id == "price_123abc"
+        assert request.product_id == "prod_123abc"
         assert request.referrer_code is None
 
     def test_valid_checkout_request_with_referrer_code(self):
         """Test valid checkout request with referrer code."""
         # Arrange & Act
         request = CheckoutSessionRequest(
-            price_id="price_123abc",
+            product_id="prod_123abc",
             referrer_code="REF123"
         )
 
         # Assert
-        assert request.price_id == "price_123abc"
+        assert request.product_id == "prod_123abc"
         assert request.referrer_code == "REF123"
 
     def test_missing_price_id_raises_validation_error(self):
-        """Test that missing price_id raises ValidationError."""
+        """Test that missing product_id raises ValidationError."""
         # Arrange & Act & Assert
         with pytest.raises(ValidationError) as exc_info:
             CheckoutSessionRequest(referrer_code="REF123")
 
         # Verify error mentions the missing field
-        assert "price_id" in str(exc_info.value)
+        assert "product_id" in str(exc_info.value)
 
     def test_empty_price_id_accepted_by_schema(self):
-        """Test that empty price_id is accepted by schema (no min_length constraint)."""
+        """Test that empty product_id is accepted by schema (no min_length constraint)."""
         # Note: Schema doesn't enforce min_length, validation happens in business logic
         # Arrange & Act
-        request = CheckoutSessionRequest(price_id="")
+        request = CheckoutSessionRequest(product_id="")
 
         # Assert
-        assert request.price_id == ""
+        assert request.product_id == ""
 
     def test_invalid_referrer_code_type(self):
         """Test that invalid referrer_code type raises ValidationError."""
         # Arrange & Act & Assert
         with pytest.raises(ValidationError):
             CheckoutSessionRequest(
-                price_id="price_123abc",
+                product_id="prod_123abc",
                 referrer_code=12345  # Should be string, not int
             )
 
@@ -455,7 +455,7 @@ class TestSchemaEdgeCases:
         # Note: Schema doesn't validate format, only type
         # Arrange & Act
         request = CheckoutSessionRequest(
-            price_id="price_123abc",
+            product_id="prod_123abc",
             referrer_code=""  # Empty string allowed
         )
 
@@ -463,15 +463,15 @@ class TestSchemaEdgeCases:
         assert request.referrer_code == ""
 
     def test_checkout_request_with_invalid_price_id_format(self):
-        """Test checkout request with malformed price_id (allowed by schema)."""
+        """Test checkout request with malformed product_id (allowed by schema)."""
         # Note: Schema validates presence, not Stripe format
         # Arrange & Act
         request = CheckoutSessionRequest(
-            price_id="invalid_price_id"  # Doesn't start with 'price_'
+            product_id="invalid_product_id"  # Doesn't start with 'prod_'
         )
 
         # Assert
-        assert request.price_id == "invalid_price_id"
+        assert request.product_id == "invalid_product_id"
 
     def test_webhook_event_with_nested_data(self):
         """Test webhook event with complex nested data structure."""

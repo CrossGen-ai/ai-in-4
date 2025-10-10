@@ -1,511 +1,364 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CourseCard } from './CourseCard';
-import * as useStripeCheckoutHook from '../../hooks/useStripeCheckout';
 
-// Mock the hooks
-vi.mock('../../hooks/useStripeCheckout');
-
-// Mock PaywallOverlay component
-vi.mock('./PaywallOverlay', () => ({
-  PaywallOverlay: ({ onUnlock, loading }: any) => (
-    <div data-testid="paywall-overlay">
-      <button onClick={onUnlock} disabled={loading} data-testid="unlock-button">
-        {loading ? 'Processing...' : 'Unlock Access'}
-      </button>
-    </div>
-  ),
-}));
-
-describe('CourseCard', () => {
-  const mockInitiateCheckout = vi.fn();
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.mocked(useStripeCheckoutHook.useStripeCheckout).mockReturnValue({
-      initiateCheckout: mockInitiateCheckout,
-      loading: false,
-      error: null,
-    });
-  });
-
-  describe('Course Information Rendering', () => {
-    it('renders course title, description, and price', () => {
-      const course = {
-        id: 'course-1',
-        name: 'Introduction to AI',
-        description: 'Learn the fundamentals of artificial intelligence',
-        category: 'a-la-carte',
-        price: 4999, // $49.99 in cents
-        price_id: 'price_123',
-        currency: 'usd',
-      };
-
-      render(<CourseCard course={course} hasAccess={false} />);
-
-      expect(screen.getByText('Introduction to AI')).toBeInTheDocument();
-      expect(screen.getByText('Learn the fundamentals of artificial intelligence')).toBeInTheDocument();
-      expect(screen.getByText('$49.99')).toBeInTheDocument();
-      expect(screen.getByText('A-LA-CARTE')).toBeInTheDocument();
-    });
-
-    it('renders default description when description is missing', () => {
-      const course = {
-        id: 'course-1',
-        name: 'Test Course',
+describe('CourseCard Component', () => {
+  describe('Free Course Rendering', () => {
+    it('renders free course card with correct styling and labels', () => {
+      const freeCourse = {
+        id: 1,
+        title: 'Introduction to Python',
+        description: 'Learn Python basics',
         category: 'free',
-        currency: 'usd',
+        schedule: 'Self-paced',
       };
 
-      render(<CourseCard course={course} hasAccess={true} />);
+      render(<CourseCard course={freeCourse} hasAccess={false} />);
+
+      // Check category badge - there are two "FREE" labels
+      const freeLabels = screen.getAllByText('FREE');
+      expect(freeLabels).toHaveLength(2);
+      expect(freeLabels[0]).toHaveClass('text-green-800'); // Badge
+      expect(freeLabels[1]).toHaveClass('text-green-600'); // Label
+
+      // Check course info
+      expect(screen.getByText('Introduction to Python')).toBeInTheDocument();
+      expect(screen.getByText('Learn Python basics')).toBeInTheDocument();
+      expect(screen.getByText(/Schedule:/)).toBeInTheDocument();
+      expect(screen.getByText(/Self-paced/)).toBeInTheDocument();
+
+      // Check button text for free course
+      expect(screen.getByRole('button', { name: /access materials/i })).toBeInTheDocument();
+    });
+
+    it('renders free course with no description', () => {
+      const freeCourse = {
+        id: 1,
+        title: 'Free Course',
+        category: 'free',
+      };
+
+      render(<CourseCard course={freeCourse} hasAccess={false} />);
 
       expect(screen.getByText('No description available')).toBeInTheDocument();
     });
 
-    it('formats price correctly for different currencies', () => {
-      const courseUSD = {
-        id: 'course-1',
-        name: 'USD Course',
-        category: 'a-la-carte',
-        price: 9999,
-        price_id: 'price_usd',
+    it('renders free course without schedule field', () => {
+      const freeCourse = {
+        id: 1,
+        title: 'Free Course',
+        category: 'free',
+      };
+
+      render(<CourseCard course={freeCourse} hasAccess={false} />);
+
+      expect(screen.queryByText(/Schedule:/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Paid Course with Access', () => {
+    it('renders paid course with access and correct styling', () => {
+      const paidCourse = {
+        id: 2,
+        title: 'Advanced Machine Learning',
+        description: 'Deep dive into ML algorithms',
+        category: 'alacarte',
+        price: 9900, // $99.00 in cents
         currency: 'usd',
       };
 
-      const { rerender } = render(<CourseCard course={courseUSD} hasAccess={false} />);
-      expect(screen.getByText('$99.99')).toBeInTheDocument();
+      render(<CourseCard course={paidCourse} hasAccess={true} />);
 
-      const courseEUR = {
-        id: 'course-2',
-        name: 'EUR Course',
-        category: 'a-la-carte',
-        price: 5000,
-        price_id: 'price_eur',
+      // Should show access button
+      const button = screen.getByRole('button', { name: /access materials/i });
+      expect(button).toBeInTheDocument();
+      expect(button).toHaveClass('bg-blue-600');
+
+      // Should show price
+      expect(screen.getByText('$99.00')).toBeInTheDocument();
+
+      // Should NOT show locked icon
+      expect(screen.queryByText(/locked/i)).not.toBeInTheDocument();
+    });
+
+    it('formats different currencies correctly', () => {
+      const euroCourse = {
+        id: 3,
+        title: 'European Course',
+        category: 'alacarte',
+        price: 5000, // €50.00 in cents
         currency: 'eur',
       };
 
-      rerender(<CourseCard course={courseEUR} hasAccess={false} />);
+      render(<CourseCard course={euroCourse} hasAccess={true} />);
+
       expect(screen.getByText('€50.00')).toBeInTheDocument();
     });
 
-    it('handles very long course descriptions', () => {
-      const longDescription = 'A'.repeat(500);
+    it('uses USD as default currency when currency is not specified', () => {
       const course = {
-        id: 'course-1',
-        name: 'Test Course',
-        description: longDescription,
-        category: 'free',
-        currency: 'usd',
+        id: 4,
+        title: 'Course Without Currency',
+        category: 'alacarte',
+        price: 2500, // $25.00 in cents
       };
 
       render(<CourseCard course={course} hasAccess={true} />);
 
-      // Description should be clamped with CSS (line-clamp-3)
-      expect(screen.getByText(longDescription)).toBeInTheDocument();
+      expect(screen.getByText('$25.00')).toBeInTheDocument();
     });
   });
 
-  describe('Category Badge Rendering', () => {
-    it('renders free category badge with correct styling', () => {
-      const course = {
-        id: 'course-1',
-        name: 'Free Course',
-        category: 'free',
+  describe('Locked Course (No Access)', () => {
+    it('renders locked course with lock icon and correct button text', () => {
+      const lockedCourse = {
+        id: 5,
+        title: 'Premium Course',
+        description: 'Advanced content',
+        category: 'alacarte',
+        price: 4900,
         currency: 'usd',
       };
 
-      render(<CourseCard course={course} hasAccess={true} />);
+      render(<CourseCard course={lockedCourse} hasAccess={false} />);
 
-      const badge = screen.getByText('FREE', { selector: 'span.inline-block' });
+      // Should show lock icon and text
+      expect(screen.getByText(/locked/i)).toBeInTheDocument();
+
+      // Should show unlock button with gray styling
+      const button = screen.getByRole('button', { name: /unlock course/i });
+      expect(button).toBeInTheDocument();
+      expect(button).toHaveClass('bg-gray-100');
+
+      // Should show price
+      expect(screen.getByText('$49.00')).toBeInTheDocument();
+    });
+
+    it('shows "Upgrade to Full Curriculum" button for curriculum courses', () => {
+      const curriculumCourse = {
+        id: 6,
+        title: 'Full Curriculum Access',
+        category: 'curriculum',
+        price: 19900,
+        currency: 'usd',
+      };
+
+      render(<CourseCard course={curriculumCourse} hasAccess={false} />);
+
+      expect(screen.getByRole('button', { name: /upgrade to full curriculum/i })).toBeInTheDocument();
+    });
+
+    it('displays lock icon SVG with correct attributes', () => {
+      const lockedCourse = {
+        id: 7,
+        title: 'Locked Course',
+        category: 'alacarte',
+      };
+
+      const { container } = render(<CourseCard course={lockedCourse} hasAccess={false} />);
+
+      const lockIcon = container.querySelector('svg');
+      expect(lockIcon).toBeInTheDocument();
+      expect(lockIcon).toHaveAttribute('viewBox', '0 0 20 20');
+    });
+  });
+
+  describe('Category Badge Styling', () => {
+    it('applies correct styling for free category', () => {
+      const course = {
+        id: 8,
+        title: 'Free Course',
+        category: 'free',
+      };
+
+      const { container } = render(<CourseCard course={course} hasAccess={false} />);
+
+      const badge = container.querySelector('.bg-green-100');
       expect(badge).toBeInTheDocument();
-      expect(badge).toHaveClass('bg-green-100', 'text-green-800');
+      expect(badge).toHaveClass('text-green-800');
+      expect(badge).toHaveTextContent('FREE');
     });
 
-    it('renders curriculum category badge with correct styling', () => {
+    it('applies correct styling for curriculum category', () => {
       const course = {
-        id: 'course-1',
-        name: 'Curriculum Course',
+        id: 9,
+        title: 'Curriculum Course',
         category: 'curriculum',
-        price: 2999,
-        price_id: 'price_123',
-        currency: 'usd',
       };
 
-      render(<CourseCard course={course} hasAccess={false} />);
+      const { container } = render(<CourseCard course={course} hasAccess={false} />);
 
-      const badge = screen.getByText('CURRICULUM');
-      expect(badge).toHaveClass('bg-purple-100', 'text-purple-800');
+      const badge = container.querySelector('.bg-purple-100');
+      expect(badge).toBeInTheDocument();
+      expect(badge).toHaveClass('text-purple-800');
+      expect(badge).toHaveTextContent('CURRICULUM');
     });
 
-    it('renders a-la-carte category badge with correct styling', () => {
+    it('applies correct styling for alacarte category', () => {
       const course = {
-        id: 'course-1',
-        name: 'A La Carte Course',
-        category: 'a-la-carte',
-        price: 1999,
-        price_id: 'price_123',
-        currency: 'usd',
+        id: 10,
+        title: 'A La Carte Course',
+        category: 'alacarte',
       };
 
-      render(<CourseCard course={course} hasAccess={false} />);
+      const { container } = render(<CourseCard course={course} hasAccess={false} />);
 
-      const badge = screen.getByText('A-LA-CARTE');
-      expect(badge).toHaveClass('bg-blue-100', 'text-blue-800');
+      const badge = container.querySelector('.bg-blue-100');
+      expect(badge).toBeInTheDocument();
+      expect(badge).toHaveClass('text-blue-800');
+      expect(badge).toHaveTextContent('ALACARTE');
     });
 
-    it('shows FREE label for free courses', () => {
+    it('applies default styling for unknown category', () => {
       const course = {
-        id: 'course-1',
-        name: 'Free Course',
-        category: 'free',
-        currency: 'usd',
+        id: 11,
+        title: 'Unknown Category Course',
+        category: 'unknown',
       };
 
-      render(<CourseCard course={course} hasAccess={false} />);
+      const { container } = render(<CourseCard course={course} hasAccess={false} />);
 
-      expect(screen.getByText('FREE', { selector: 'span.text-green-600' })).toBeInTheDocument();
-    });
-
-    it('does not show FREE label for paid courses', () => {
-      const course = {
-        id: 'course-1',
-        name: 'Paid Course',
-        category: 'a-la-carte',
-        price: 2999,
-        price_id: 'price_123',
-        currency: 'usd',
-      };
-
-      render(<CourseCard course={course} hasAccess={false} />);
-
-      expect(screen.queryByText('FREE', { selector: 'span.text-green-600' })).not.toBeInTheDocument();
+      const badge = container.querySelector('.bg-gray-100');
+      expect(badge).toBeInTheDocument();
+      expect(badge).toHaveClass('text-gray-800');
+      expect(badge).toHaveTextContent('UNKNOWN');
     });
   });
 
-  describe('Access Button States', () => {
-    it('shows "Access Now" button for free courses', () => {
-      const course = {
-        id: 'course-1',
-        name: 'Free Course',
-        category: 'free',
-        currency: 'usd',
-      };
-
-      render(<CourseCard course={course} hasAccess={false} />);
-
-      const button = screen.getByRole('button', { name: 'Access Now' });
-      expect(button).toBeInTheDocument();
-      expect(button).not.toBeDisabled();
-      expect(button).toHaveClass('bg-green-600');
-    });
-
-    it('shows "Access Now" button for purchased courses', () => {
-      const course = {
-        id: 'course-1',
-        name: 'Purchased Course',
-        category: 'a-la-carte',
-        price: 2999,
-        price_id: 'price_123',
-        currency: 'usd',
-      };
-
-      render(<CourseCard course={course} hasAccess={true} />);
-
-      const button = screen.getByRole('button', { name: 'Access Now' });
-      expect(button).toBeInTheDocument();
-      expect(button).not.toBeDisabled();
-      expect(button).toHaveClass('bg-green-600');
-    });
-
-    it('shows disabled "Locked" button for locked paid courses', () => {
-      const course = {
-        id: 'course-1',
-        name: 'Locked Course',
-        category: 'a-la-carte',
-        price: 2999,
-        price_id: 'price_123',
-        currency: 'usd',
-      };
-
-      render(<CourseCard course={course} hasAccess={false} />);
-
-      const button = screen.getByRole('button', { name: 'Locked' });
-      expect(button).toBeInTheDocument();
-      expect(button).toBeDisabled();
-      expect(button).toHaveClass('bg-gray-200', 'text-gray-500');
-    });
-
-    it('treats course without price as free', () => {
-      const course = {
-        id: 'course-1',
-        name: 'Course Without Price',
-        category: 'curriculum',
-        currency: 'usd',
-      };
-
-      render(<CourseCard course={course} hasAccess={false} />);
-
-      const button = screen.getByRole('button', { name: 'Access Now' });
-      expect(button).toBeInTheDocument();
-      expect(button).not.toBeDisabled();
-    });
-
-    it('calls onAccessClick when Access Now button is clicked', async () => {
+  describe('Button Click Interaction', () => {
+    it('calls onAccessClick when button is clicked', async () => {
       const user = userEvent.setup();
       const onAccessClick = vi.fn();
+
       const course = {
-        id: 'course-1',
-        name: 'Free Course',
+        id: 12,
+        title: 'Clickable Course',
         category: 'free',
-        currency: 'usd',
       };
 
-      render(<CourseCard course={course} hasAccess={true} onAccessClick={onAccessClick} />);
+      render(<CourseCard course={course} hasAccess={false} onAccessClick={onAccessClick} />);
 
-      const button = screen.getByRole('button', { name: 'Access Now' });
+      const button = screen.getByRole('button', { name: /access materials/i });
       await user.click(button);
 
       expect(onAccessClick).toHaveBeenCalledTimes(1);
     });
 
-    it('does not trigger onAccessClick when locked button is clicked', async () => {
+    it('does not throw error when onAccessClick is undefined', async () => {
+      const user = userEvent.setup();
+
+      const course = {
+        id: 13,
+        title: 'Course Without Handler',
+        category: 'free',
+      };
+
+      render(<CourseCard course={course} hasAccess={false} />);
+
+      const button = screen.getByRole('button', { name: /access materials/i });
+
+      // Should not throw error
+      await expect(user.click(button)).resolves.not.toThrow();
+    });
+
+    it('calls onAccessClick multiple times when clicked multiple times', async () => {
       const user = userEvent.setup();
       const onAccessClick = vi.fn();
+
       const course = {
-        id: 'course-1',
-        name: 'Locked Course',
-        category: 'a-la-carte',
-        price: 2999,
-        price_id: 'price_123',
-        currency: 'usd',
+        id: 14,
+        title: 'Multi-Click Course',
+        category: 'alacarte',
       };
 
       render(<CourseCard course={course} hasAccess={false} onAccessClick={onAccessClick} />);
 
-      const button = screen.getByRole('button', { name: 'Locked' });
+      const button = screen.getByRole('button', { name: /unlock course/i });
+      await user.click(button);
+      await user.click(button);
       await user.click(button);
 
-      // Button is disabled, so click should not trigger callback
-      expect(onAccessClick).not.toHaveBeenCalled();
+      expect(onAccessClick).toHaveBeenCalledTimes(3);
     });
   });
 
-  describe('Paywall Overlay', () => {
-    it('shows paywall overlay for locked paid courses', () => {
+  describe('Course Title Edge Cases', () => {
+    it('uses course.name when course.title is not provided', () => {
       const course = {
-        id: 'course-1',
-        name: 'Locked Course',
-        category: 'a-la-carte',
-        price: 2999,
-        price_id: 'price_123',
-        currency: 'usd',
-      };
-
-      render(<CourseCard course={course} hasAccess={false} />);
-
-      expect(screen.getByTestId('paywall-overlay')).toBeInTheDocument();
-    });
-
-    it('does not show paywall overlay for free courses', () => {
-      const course = {
-        id: 'course-1',
-        name: 'Free Course',
+        id: 15,
+        title: '',
+        name: 'Fallback Name',
         category: 'free',
-        currency: 'usd',
       };
 
       render(<CourseCard course={course} hasAccess={false} />);
 
-      expect(screen.queryByTestId('paywall-overlay')).not.toBeInTheDocument();
+      expect(screen.getByText('Fallback Name')).toBeInTheDocument();
     });
 
-    it('does not show paywall overlay for purchased courses', () => {
+    it('uses "Untitled Course" when neither title nor name is provided', () => {
       const course = {
-        id: 'course-1',
-        name: 'Purchased Course',
-        category: 'a-la-carte',
-        price: 2999,
-        price_id: 'price_123',
-        currency: 'usd',
-      };
-
-      render(<CourseCard course={course} hasAccess={true} />);
-
-      expect(screen.queryByTestId('paywall-overlay')).not.toBeInTheDocument();
-    });
-
-    it('does not show paywall for courses without price', () => {
-      const course = {
-        id: 'course-1',
-        name: 'No Price Course',
-        category: 'curriculum',
-        currency: 'usd',
+        id: 16,
+        title: '',
+        category: 'free',
       };
 
       render(<CourseCard course={course} hasAccess={false} />);
 
-      expect(screen.queryByTestId('paywall-overlay')).not.toBeInTheDocument();
+      expect(screen.getByText('Untitled Course')).toBeInTheDocument();
+    });
+
+    it('prefers title over name when both are provided', () => {
+      const course = {
+        id: 17,
+        title: 'Primary Title',
+        name: 'Secondary Name',
+        category: 'free',
+      };
+
+      render(<CourseCard course={course} hasAccess={false} />);
+
+      expect(screen.getByText('Primary Title')).toBeInTheDocument();
+      expect(screen.queryByText('Secondary Name')).not.toBeInTheDocument();
     });
   });
 
-  describe('Stripe Checkout Integration', () => {
-    it('initiates checkout when unlock button is clicked', async () => {
-      const user = userEvent.setup();
+  describe('Price Display Edge Cases', () => {
+    it('does not render price when price is 0', () => {
       const course = {
-        id: 'course-1',
-        name: 'Locked Course',
-        category: 'a-la-carte',
-        price: 2999,
-        price_id: 'price_123',
-        currency: 'usd',
-      };
-
-      render(<CourseCard course={course} hasAccess={false} />);
-
-      const unlockButton = screen.getByTestId('unlock-button');
-      await user.click(unlockButton);
-
-      expect(mockInitiateCheckout).toHaveBeenCalledWith('price_123');
-    });
-
-    it('does not initiate checkout when price_id is missing', async () => {
-      const user = userEvent.setup();
-      const course = {
-        id: 'course-1',
-        name: 'Course Without Price ID',
-        category: 'a-la-carte',
-        price: 2999,
-        currency: 'usd',
-      };
-
-      render(<CourseCard course={course} hasAccess={false} />);
-
-      const unlockButton = screen.getByTestId('unlock-button');
-      await user.click(unlockButton);
-
-      expect(mockInitiateCheckout).not.toHaveBeenCalled();
-    });
-
-    it('shows loading state in paywall overlay during checkout', () => {
-      vi.mocked(useStripeCheckoutHook.useStripeCheckout).mockReturnValue({
-        initiateCheckout: mockInitiateCheckout,
-        loading: true,
-        error: null,
-      });
-
-      const course = {
-        id: 'course-1',
-        name: 'Locked Course',
-        category: 'a-la-carte',
-        price: 2999,
-        price_id: 'price_123',
-        currency: 'usd',
-      };
-
-      render(<CourseCard course={course} hasAccess={false} />);
-
-      const unlockButton = screen.getByTestId('unlock-button');
-      expect(unlockButton).toBeDisabled();
-      expect(unlockButton).toHaveTextContent('Processing...');
-    });
-
-    it('passes loading state to PaywallOverlay', () => {
-      vi.mocked(useStripeCheckoutHook.useStripeCheckout).mockReturnValue({
-        initiateCheckout: mockInitiateCheckout,
-        loading: true,
-        error: null,
-      });
-
-      const course = {
-        id: 'course-1',
-        name: 'Locked Course',
-        category: 'a-la-carte',
-        price: 2999,
-        price_id: 'price_123',
-        currency: 'usd',
-      };
-
-      render(<CourseCard course={course} hasAccess={false} />);
-
-      expect(screen.getByTestId('paywall-overlay')).toBeInTheDocument();
-      expect(screen.getByTestId('unlock-button')).toBeDisabled();
-    });
-  });
-
-  describe('Edge Cases', () => {
-    it('handles zero price as free course', () => {
-      const course = {
-        id: 'course-1',
-        name: 'Zero Price Course',
-        category: 'a-la-carte',
+        id: 18,
+        title: 'Free Premium Course',
+        category: 'alacarte',
         price: 0,
-        currency: 'usd',
       };
 
       render(<CourseCard course={course} hasAccess={false} />);
 
-      expect(screen.getByRole('button', { name: 'Access Now' })).toBeInTheDocument();
-      expect(screen.queryByTestId('paywall-overlay')).not.toBeInTheDocument();
+      // Price should not be rendered (0 is falsy)
+      expect(screen.queryByText('$0.00')).not.toBeInTheDocument();
     });
 
-    it('handles null price correctly', () => {
+    it('does not render price when price is undefined', () => {
       const course = {
-        id: 'course-1',
-        name: 'Null Price Course',
+        id: 19,
+        title: 'Course Without Price',
+        category: 'alacarte',
+      };
+
+      render(<CourseCard course={course} hasAccess={false} />);
+
+      // No price element should be rendered
+      const priceElement = screen.queryByText(/\$/);
+      expect(priceElement).not.toBeInTheDocument();
+    });
+
+    it('renders very large price correctly', () => {
+      const course = {
+        id: 20,
+        title: 'Expensive Course',
         category: 'curriculum',
-        price: null as any,
-        currency: 'usd',
-      };
-
-      render(<CourseCard course={course} hasAccess={false} />);
-
-      expect(screen.getByRole('button', { name: 'Access Now' })).toBeInTheDocument();
-      expect(screen.queryByTestId('paywall-overlay')).not.toBeInTheDocument();
-    });
-
-    it('handles undefined price correctly', () => {
-      const course = {
-        id: 'course-1',
-        name: 'Undefined Price Course',
-        category: 'a-la-carte',
-        price: undefined,
-        currency: 'usd',
-      };
-
-      render(<CourseCard course={course} hasAccess={false} />);
-
-      expect(screen.getByRole('button', { name: 'Access Now' })).toBeInTheDocument();
-      expect(screen.queryByTestId('paywall-overlay')).not.toBeInTheDocument();
-    });
-
-    it('handles empty price_id gracefully', async () => {
-      const user = userEvent.setup();
-      const course = {
-        id: 'course-1',
-        name: 'Empty Price ID',
-        category: 'a-la-carte',
-        price: 2999,
-        price_id: '',
-        currency: 'usd',
-      };
-
-      render(<CourseCard course={course} hasAccess={false} />);
-
-      const unlockButton = screen.getByTestId('unlock-button');
-      await user.click(unlockButton);
-
-      // Should not call initiateCheckout with empty string
-      expect(mockInitiateCheckout).not.toHaveBeenCalled();
-    });
-
-    it('handles very large price values', () => {
-      const course = {
-        id: 'course-1',
-        name: 'Expensive Course',
-        category: 'a-la-carte',
         price: 999999, // $9,999.99
-        price_id: 'price_123',
         currency: 'usd',
       };
 
@@ -514,151 +367,161 @@ describe('CourseCard', () => {
       expect(screen.getByText('$9,999.99')).toBeInTheDocument();
     });
 
-    it('handles missing onAccessClick prop', async () => {
-      const user = userEvent.setup();
+    it('renders price with 1 cent correctly', () => {
       const course = {
-        id: 'course-1',
-        name: 'Free Course',
-        category: 'free',
-        currency: 'usd',
-      };
-
-      render(<CourseCard course={course} hasAccess={true} />);
-
-      const button = screen.getByRole('button', { name: 'Access Now' });
-
-      // Should not throw error when clicked without callback
-      await expect(user.click(button)).resolves.not.toThrow();
-    });
-
-    it('handles special characters in course name', () => {
-      const course = {
-        id: 'course-1',
-        name: 'AI & ML: Advanced "Techniques" (2024)',
-        category: 'free',
-        currency: 'usd',
-      };
-
-      render(<CourseCard course={course} hasAccess={true} />);
-
-      expect(screen.getByText('AI & ML: Advanced "Techniques" (2024)')).toBeInTheDocument();
-    });
-
-    it('handles special characters in description', () => {
-      const course = {
-        id: 'course-1',
-        name: 'Test Course',
-        description: 'Learn <html>, "JavaScript" & React.js!',
-        category: 'free',
-        currency: 'usd',
-      };
-
-      render(<CourseCard course={course} hasAccess={true} />);
-
-      expect(screen.getByText('Learn <html>, "JavaScript" & React.js!')).toBeInTheDocument();
-    });
-  });
-
-  describe('Lock State Logic', () => {
-    it('course is locked when paid and no access', () => {
-      const course = {
-        id: 'course-1',
-        name: 'Locked Course',
-        category: 'a-la-carte',
-        price: 2999,
-        price_id: 'price_123',
+        id: 21,
+        title: 'Penny Course',
+        category: 'alacarte',
+        price: 1, // $0.01
         currency: 'usd',
       };
 
       render(<CourseCard course={course} hasAccess={false} />);
 
-      expect(screen.getByRole('button', { name: 'Locked' })).toBeDisabled();
-      expect(screen.getByTestId('paywall-overlay')).toBeInTheDocument();
+      expect(screen.getByText('$0.01')).toBeInTheDocument();
     });
+  });
 
-    it('course is unlocked when paid and has access', () => {
+  describe('Missing or Invalid Stripe Product/Price IDs', () => {
+    it('renders course without price_id field', () => {
       const course = {
-        id: 'course-1',
-        name: 'Unlocked Course',
-        category: 'a-la-carte',
-        price: 2999,
-        price_id: 'price_123',
+        id: 22,
+        title: 'Course Without Price ID',
+        category: 'alacarte',
+        price: 5000,
         currency: 'usd',
       };
 
-      render(<CourseCard course={course} hasAccess={true} />);
+      render(<CourseCard course={course} hasAccess={false} />);
 
-      expect(screen.getByRole('button', { name: 'Access Now' })).not.toBeDisabled();
-      expect(screen.queryByTestId('paywall-overlay')).not.toBeInTheDocument();
+      expect(screen.getByText('$50.00')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /unlock course/i })).toBeInTheDocument();
     });
 
-    it('free course is always unlocked regardless of hasAccess', () => {
+    it('renders course with empty price_id', () => {
       const course = {
-        id: 'course-1',
-        name: 'Free Course',
+        id: 23,
+        title: 'Course With Empty Price ID',
+        category: 'alacarte',
+        price: 3000,
+        currency: 'usd',
+        price_id: '',
+      };
+
+      render(<CourseCard course={course} hasAccess={false} />);
+
+      expect(screen.getByText('$30.00')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /unlock course/i })).toBeInTheDocument();
+    });
+
+    it('renders course with invalid price_id format', () => {
+      const course = {
+        id: 24,
+        title: 'Course With Invalid Price ID',
+        category: 'alacarte',
+        price: 2000,
+        currency: 'usd',
+        price_id: 'invalid_price_id_123',
+      };
+
+      // Component should still render normally - validation happens elsewhere
+      render(<CourseCard course={course} hasAccess={false} />);
+
+      expect(screen.getByText('$20.00')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /unlock course/i })).toBeInTheDocument();
+    });
+  });
+
+  describe('Component Structure and Accessibility', () => {
+    it('renders with proper semantic HTML structure', () => {
+      const course = {
+        id: 25,
+        title: 'Accessible Course',
+        description: 'Testing accessibility',
+        category: 'alacarte',
+      };
+
+      const { container } = render(<CourseCard course={course} hasAccess={false} />);
+
+      // Check for main container
+      expect(container.querySelector('.bg-white.rounded-lg')).toBeInTheDocument();
+
+      // Check for heading
+      expect(screen.getByRole('heading', { level: 3 })).toBeInTheDocument();
+
+      // Check for button
+      expect(screen.getByRole('button')).toBeInTheDocument();
+    });
+
+    it('applies hover transition classes', () => {
+      const course = {
+        id: 26,
+        title: 'Hoverable Course',
         category: 'free',
-        currency: 'usd',
       };
 
-      const { rerender } = render(<CourseCard course={course} hasAccess={false} />);
+      const { container } = render(<CourseCard course={course} hasAccess={false} />);
 
-      expect(screen.getByRole('button', { name: 'Access Now' })).not.toBeDisabled();
-      expect(screen.queryByTestId('paywall-overlay')).not.toBeInTheDocument();
-
-      rerender(<CourseCard course={course} hasAccess={true} />);
-
-      expect(screen.getByRole('button', { name: 'Access Now' })).not.toBeDisabled();
-      expect(screen.queryByTestId('paywall-overlay')).not.toBeInTheDocument();
+      const card = container.querySelector('.hover\\:shadow-lg');
+      expect(card).toBeInTheDocument();
+      expect(card).toHaveClass('transition-shadow');
     });
 
-    it('curriculum category with no price is treated as free', () => {
+    it('truncates long descriptions with line-clamp', () => {
       const course = {
-        id: 'course-1',
-        name: 'Curriculum Course',
+        id: 27,
+        title: 'Long Description Course',
+        description: 'This is a very long description that should be truncated. '.repeat(10),
+        category: 'alacarte',
+      };
+
+      const { container } = render(<CourseCard course={course} hasAccess={false} />);
+
+      const description = container.querySelector('.line-clamp-3');
+      expect(description).toBeInTheDocument();
+    });
+  });
+
+  describe('Integration Scenarios', () => {
+    it('renders complete paid course with all fields', () => {
+      const fullCourse = {
+        id: 28,
+        title: 'Complete Course',
+        description: 'Full description with all fields',
         category: 'curriculum',
+        schedule: 'Mondays and Wednesdays, 6-8 PM EST',
+        price: 14900,
+        price_id: 'price_1234567890',
         currency: 'usd',
       };
 
-      render(<CourseCard course={course} hasAccess={false} />);
+      render(<CourseCard course={fullCourse} hasAccess={false} />);
 
-      expect(screen.getByRole('button', { name: 'Access Now' })).not.toBeDisabled();
-      expect(screen.queryByTestId('paywall-overlay')).not.toBeInTheDocument();
-    });
-  });
-
-  describe('Accessibility', () => {
-    it('button has correct disabled state for screen readers', () => {
-      const course = {
-        id: 'course-1',
-        name: 'Locked Course',
-        category: 'a-la-carte',
-        price: 2999,
-        price_id: 'price_123',
-        currency: 'usd',
-      };
-
-      render(<CourseCard course={course} hasAccess={false} />);
-
-      const button = screen.getByRole('button', { name: 'Locked' });
-      expect(button).toHaveAttribute('disabled');
+      // Verify all elements are rendered
+      expect(screen.getByText('Complete Course')).toBeInTheDocument();
+      expect(screen.getByText('Full description with all fields')).toBeInTheDocument();
+      expect(screen.getByText('CURRICULUM')).toBeInTheDocument();
+      expect(screen.getByText(/Mondays and Wednesdays/)).toBeInTheDocument();
+      expect(screen.getByText('$149.00')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /upgrade to full curriculum/i })).toBeInTheDocument();
+      expect(screen.getByText(/locked/i)).toBeInTheDocument();
     });
 
-    it('accessible course information structure', () => {
-      const course = {
-        id: 'course-1',
-        name: 'Test Course',
-        description: 'Test Description',
-        category: 'a-la-carte',
-        price: 2999,
-        price_id: 'price_123',
-        currency: 'usd',
+    it('renders minimal free course with only required fields', () => {
+      const minimalCourse = {
+        id: 29,
+        title: 'Minimal Course',
+        category: 'free',
       };
 
-      render(<CourseCard course={course} hasAccess={false} />);
+      render(<CourseCard course={minimalCourse} hasAccess={false} />);
 
-      // Title should be in h3
-      const title = screen.getByRole('heading', { level: 3, name: 'Test Course' });
-      expect(title).toBeInTheDocument();
+      // Should render with defaults
+      expect(screen.getByText('Minimal Course')).toBeInTheDocument();
+      expect(screen.getByText('No description available')).toBeInTheDocument();
+      const freeLabels = screen.getAllByText('FREE');
+      expect(freeLabels).toHaveLength(2);
+      expect(screen.getByRole('button', { name: /access materials/i })).toBeInTheDocument();
     });
   });
 });

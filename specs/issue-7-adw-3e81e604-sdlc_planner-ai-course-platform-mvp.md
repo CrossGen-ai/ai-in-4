@@ -412,7 +412,7 @@ yarn add -D @types/react-router-dom
 ### Environment Variables
 Update `app/server/.env.sample` with:
 ```
-DATABASE_URL=sqlite+aiosqlite:///./app.db
+DATABASE_URL=sqlite+aiosqlite:///./db/database.db
 MAGIC_LINK_SECRET=your-secret-key-change-in-production
 MAGIC_LINK_EXPIRY_MINUTES=15
 EMAIL_HOST=smtp.example.com

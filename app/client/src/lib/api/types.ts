@@ -73,6 +73,8 @@ export type Course = {
   id: number;
   title: string;
   description?: string;
+  category?: string; // free, curriculum, alacarte, unique
   schedule?: string;
   materials_url?: string;
+  has_access?: boolean; // Only present when fetched with access status
 }

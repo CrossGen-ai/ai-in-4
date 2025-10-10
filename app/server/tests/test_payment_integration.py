@@ -70,6 +70,7 @@ async def test_product_and_price(test_db):
         amount=10000,  # $100.00
         currency="usd",
         active=True,
+        stripe_metadata={"eligible_employment_statuses": ["Student", "Employed", "Unemployed", "Self-employed"]},
     )
     test_db.add(price)
     await test_db.commit()
@@ -98,15 +99,20 @@ async def test_full_checkout_to_entitlement_workflow(
     product, price = test_product_and_price
     user = override_get_current_user
 
-    # Step 1: Create checkout session
-    checkout_response = client.post(
-        "/api/payments/checkout",
-        json={"price_id": price.id, "referrer_code": None},
-    )
-    assert checkout_response.status_code == 200
-    checkout_data = checkout_response.json()
-    assert "session_id" in checkout_data
-    assert "checkout_url" in checkout_data
+    # Mock Stripe checkout session creation
+    with patch("stripe.checkout.Session.create") as mock_stripe:
+        mock_stripe.return_value.id = "cs_test_integration_123"
+        mock_stripe.return_value.url = "https://checkout.stripe.com/test"
+
+        # Step 1: Create checkout session
+        checkout_response = client.post(
+            "/api/payments/checkout",
+            json={"product_id": product.id, "referrer_code": None},
+        )
+        assert checkout_response.status_code == 200
+        checkout_data = checkout_response.json()
+        assert "session_id" in checkout_data
+        assert "checkout_url" in checkout_data
 
     # Step 2: Simulate webhook from Stripe after successful payment
     webhook_payload = {
@@ -232,12 +238,17 @@ async def test_full_referral_workflow_checkout_to_credit_application(
     user = override_get_current_user
     referrer = test_referrer
 
-    # Step 1: Create checkout session with referral code
-    checkout_response = client.post(
-        "/api/payments/checkout",
-        json={"price_id": price.id, "referrer_code": referrer.referral_code},
-    )
-    assert checkout_response.status_code == 200
+    # Mock Stripe checkout session creation
+    with patch("stripe.checkout.Session.create") as mock_stripe:
+        mock_stripe.return_value.id = "cs_test_referral_123"
+        mock_stripe.return_value.url = "https://checkout.stripe.com/test"
+
+        # Step 1: Create checkout session with referral code
+        checkout_response = client.post(
+            "/api/payments/checkout",
+            json={"product_id": product.id, "referrer_code": referrer.referral_code},
+        )
+        assert checkout_response.status_code == 200
 
     # Step 2: Simulate successful payment webhook with referrer info
     webhook_payload = {
@@ -309,7 +320,7 @@ async def test_referral_code_validation_rejects_invalid_code(
 
     response = client.post(
         "/api/payments/checkout",
-        json={"price_id": price.id, "referrer_code": "INVALID999"},
+        json={"product_id": product.id, "referrer_code": "INVALID999"},
     )
 
     assert response.status_code == 400
@@ -336,7 +347,7 @@ async def test_self_referral_prevention(
     # Attempt to use own referral code
     response = client.post(
         "/api/payments/checkout",
-        json={"price_id": price.id, "referrer_code": user_code},
+        json={"product_id": product.id, "referrer_code": user_code},
     )
 
     assert response.status_code == 400
@@ -600,11 +611,11 @@ async def test_checkout_validates_price_exists(
     """
     response = client.post(
         "/api/payments/checkout",
-        json={"price_id": "price_nonexistent_123", "referrer_code": None},
+        json={"product_id": "prod_nonexistent_123", "referrer_code": None},
     )
 
     assert response.status_code == 404
-    assert "Price not found" in response.json()["detail"]
+    assert "Product not found" in response.json()["detail"]
 
 
 # ============================================================================

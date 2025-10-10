@@ -3,10 +3,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from db.database import get_db
 from db.models import Course, User, StripeProduct, StripePrice
-from models.schemas import CourseResponse, StripeProductResponse, CourseAccessResponse
+from models.schemas import CourseResponse, CourseWithAccessResponse, StripeProductResponse, CourseAccessResponse
 from api.routes.users import get_current_user
 from services import entitlement_service
-from typing import List
+from typing import List, Optional
 
 router = APIRouter()
 
@@ -17,6 +17,46 @@ async def list_courses(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Course))
     courses = result.scalars().all()
     return [CourseResponse.model_validate(course) for course in courses]
+
+
+@router.get("/with-access", response_model=List[CourseWithAccessResponse])
+async def list_courses_with_access(
+    current_user: Optional[User] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get list of all courses with access status for the current user.
+
+    This endpoint uses category-based access logic:
+    - free: Always accessible
+    - unique: Must have entitlement to specific product
+    - curriculum/alacarte: Must have entitlement to ANY product in same category
+    """
+    result = await db.execute(select(Course))
+    courses = result.scalars().all()
+
+    courses_with_access = []
+    for course in courses:
+        # Check access for authenticated users, always deny for anonymous
+        has_access = False
+        if current_user:
+            has_access = await entitlement_service.check_course_access(
+                current_user.id, course, db
+            )
+
+        courses_with_access.append(
+            CourseWithAccessResponse(
+                id=course.id,
+                title=course.title,
+                description=course.description,
+                category=course.category,
+                schedule=course.schedule,
+                materials_url=course.materials_url,
+                has_access=has_access,
+            )
+        )
+
+    return courses_with_access
 
 
 @router.get("/products", response_model=List[StripeProductResponse])

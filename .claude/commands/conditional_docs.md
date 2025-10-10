@@ -121,3 +121,26 @@ This prompt helps you determine what documentation you should read based on the 
     - When testing entitlement granting after payment
     - When testing referral credit application
     - When working with test_payment_integration.py
+
+- app_docs/testing/STRIPE_TESTING.md
+  - Conditions:
+    - When testing Stripe payment integration end-to-end
+    - When setting up Stripe test mode vs live mode
+    - When testing employment-based pricing logic
+    - When testing course access control (free, alacarte, curriculum)
+    - When using Stripe CLI for local webhook testing
+    - When debugging checkout session creation
+    - When verifying payment_intent metadata flow
+    - When testing with Stripe test cards
+    - When troubleshooting "course remains locked after payment"
+    - When verifying price selection based on employment status
+    - When testing alacarte per-course vs curriculum bundle access
+    - When running create_test_products.py script
+    - When switching between test and live mode
+    - When performing manual or E2E Stripe testing
+    - When implementing or testing referral system with Stripe payments  # NEW
+    - When handling refunded payments or revoked entitlements  # NEW
+    - When configuring product metadata in Stripe dashboard  # NEW
+    - When diagnosing "No price available" errors  # NEW
+    - When working with stripe_service.py or webhook signature verification  # NEW
+    - When deploying Stripe integration to production  # NEW

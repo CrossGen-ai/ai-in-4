@@ -124,25 +124,63 @@ async def seed_db():
             )
             db.add(experience)
 
-        # Create sample courses
+        # Create sample courses with categories matching Stripe products
         courses_data = [
             {
-                "title": "AI Fundamentals: Understanding the Basics",
-                "description": "Learn the core concepts of artificial intelligence and machine learning",
-                "schedule": "Every Monday, 6:00 PM - 8:00 PM PST",
-                "materials_url": "https://example.com/ai-fundamentals"
+                "title": "Free AI Intro Course",
+                "description": "Introduction to AI fundamentals - completely free",
+                "category": "free",
+                "stripe_product_id": None,  # Free courses don't need product link
+                "schedule": "Self-paced",
+                "materials_url": "https://example.com/free-intro"
             },
             {
-                "title": "Practical AI: Building Real Applications",
-                "description": "Hands-on course on building AI-powered applications",
-                "schedule": "Every Wednesday, 6:00 PM - 8:00 PM PST",
-                "materials_url": "https://example.com/practical-ai"
+                "title": "AI in 4 Weekends - Week 1: Foundations",
+                "description": "Week 1 of the complete AI mastery program",
+                "category": "curriculum",
+                "stripe_product_id": None,  # Category-based access
+                "schedule": "Weekend 1, Saturday 9:00 AM - 5:00 PM PST",
+                "materials_url": "https://example.com/ai-4-weekends/week-1"
             },
             {
-                "title": "Advanced AI: LLMs and Beyond",
-                "description": "Deep dive into large language models and cutting-edge AI",
-                "schedule": "Every Friday, 6:00 PM - 8:00 PM PST",
-                "materials_url": "https://example.com/advanced-ai"
+                "title": "AI in 4 Weekends - Week 2: Applications",
+                "description": "Week 2 of the complete AI mastery program",
+                "category": "curriculum",
+                "stripe_product_id": None,  # Category-based access
+                "schedule": "Weekend 2, Saturday 9:00 AM - 5:00 PM PST",
+                "materials_url": "https://example.com/ai-4-weekends/week-2"
+            },
+            {
+                "title": "AI in 4 Weekends - Week 3: Advanced Topics",
+                "description": "Week 3 of the complete AI mastery program",
+                "category": "curriculum",
+                "stripe_product_id": None,  # Category-based access
+                "schedule": "Weekend 3, Saturday 9:00 AM - 5:00 PM PST",
+                "materials_url": "https://example.com/ai-4-weekends/week-3"
+            },
+            {
+                "title": "AI in 4 Weekends - Week 4: Real-World Projects",
+                "description": "Week 4 of the complete AI mastery program",
+                "category": "curriculum",
+                "stripe_product_id": None,  # Category-based access
+                "schedule": "Weekend 4, Saturday 9:00 AM - 5:00 PM PST",
+                "materials_url": "https://example.com/ai-4-weekends/week-4"
+            },
+            {
+                "title": "Prompt Engineering Mastery",
+                "description": "Deep dive into advanced prompt engineering techniques",
+                "category": "alacarte",
+                "stripe_product_id": None,  # Category-based access
+                "schedule": "Self-paced with live Q&A sessions",
+                "materials_url": "https://example.com/prompt-engineering"
+            },
+            {
+                "title": "AI Automation for Business",
+                "description": "Learn how to automate business processes with AI tools",
+                "category": "alacarte",
+                "stripe_product_id": None,  # Category-based access
+                "schedule": "Self-paced with weekly office hours",
+                "materials_url": "https://example.com/ai-automation"
             }
         ]
 
@@ -151,8 +189,9 @@ async def seed_db():
             db.add(course)
 
         await db.commit()
-        print("Database seeded successfully!")
-        print(f"Created {len(users_data)} users and {len(courses_data)} courses")
+        print("✅ Database seeded successfully!")
+        print(f"   Created {len(users_data)} users and {len(courses_data)} courses")
+        print("   Course categories: 1 free, 4 curriculum, 2 alacarte")
 
 
 if __name__ == "__main__":

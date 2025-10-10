@@ -90,9 +90,14 @@ class Course(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
+    category = Column(String(50), nullable=False)  # free, curriculum, alacarte, unique
+    stripe_product_id = Column(String(255), ForeignKey("stripe_products.id"), nullable=True, index=True)
     schedule = Column(Text, nullable=True)
     materials_url = Column(String(500), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
+    # Relationships
+    stripe_product = relationship("StripeProduct", foreign_keys=[stripe_product_id])
 
 
 class Entitlement(Base):

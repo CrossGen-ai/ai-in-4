@@ -26,10 +26,10 @@ export function Landing() {
                   Welcome, {user?.email}!
                 </div>
                 <Link
-                  to="/courses"
+                  to="/dashboard"
                   className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors text-lg"
                 >
-                  View Courses
+                  View Dashboard
                 </Link>
                 <button
                   onClick={logout}

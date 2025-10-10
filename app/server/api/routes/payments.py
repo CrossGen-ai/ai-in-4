@@ -6,6 +6,7 @@ from typing import List
 import json
 import logging
 import stripe
+from stripe import StripeError
 
 from core.config import settings
 from db.database import get_db
@@ -78,7 +79,7 @@ async def create_checkout_session(
     prices_result = await db.execute(
         select(StripePrice)
         .where(StripePrice.product_id == request.product_id)
-        .where(StripePrice.active == True)
+        .where(StripePrice.active)
     )
     prices = prices_result.scalars().all()
 
@@ -146,6 +147,9 @@ async def create_checkout_session(
             mode="payment",
             success_url=f"{settings.FRONTEND_URL}/purchase/success?session_id={{CHECKOUT_SESSION_ID}}",
             cancel_url=f"{settings.FRONTEND_URL}/purchase/cancelled",
+            payment_intent_data={
+                "metadata": metadata,
+            },
             metadata=metadata,
         )
 
@@ -159,7 +163,7 @@ async def create_checkout_session(
             checkout_url=checkout_session.url,
             session_id=checkout_session.id,
         )
-    except stripe.error.StripeError as e:
+    except StripeError as e:
         logger.error(f"Stripe error creating checkout session: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

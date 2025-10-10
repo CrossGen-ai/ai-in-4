@@ -185,7 +185,7 @@ describe('Login Component', () => {
 
       await waitFor(() => {
         expect(apiClient.api.auth.validateMagicLink).toHaveBeenCalledWith('magic-link-token');
-        expect(mockNavigate).toHaveBeenCalledWith('/courses');
+        expect(mockNavigate).toHaveBeenCalledWith('/dashboard');
       });
     });
 
